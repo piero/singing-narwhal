@@ -349,6 +349,8 @@ interface Tiny {
     /** Files opened with the app from Finder or dropped on its Dock icon (packaged app only). */
     onOpenFiles(fn: (paths: string[]) => void): void;
   };
+  /** The system's light or dark setting, read by the launcher (also on Windows and Linux). */
+  theme?: { get(): Promise<{ dark: boolean } | null>; on(fn: (dark: boolean) => void): () => void };
   dialog: {
     pickFolder(): Promise<string | null>;
     saveFile(o?: { types?: string[] }): Promise<string | null>;

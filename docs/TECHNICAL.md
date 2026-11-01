@@ -411,6 +411,10 @@ esbuild and run by txiki.js).
   (`.github/workflows/release.yml`): a universal `.dmg` on a macOS runner and a portable
   `.zip` (`narwhal.exe` + `launcher.exe`, the page bundled inside the `.exe`) on a Windows
   runner, attached to a GitHub release. See [Releases](DEVELOPMENT.md#releases).
+- Light or dark follows the system: the page sets `data-theme` on `<html>`, which
+  `app.css` styles. Browsers take it from `prefers-color-scheme`; the desktop app from
+  `tiny.theme` (`src/ui/theme.ts`), because the Windows webview doesn't always report the
+  system setting through the media query. The window's title bar is drawn by Windows.
 - On Windows the backend also scans the Windows font folders for installed fonts; the
   rest of the app uses the same TinyJS APIs, which TinyJS supports on Windows in beta.
 

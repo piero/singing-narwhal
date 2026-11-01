@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>%APP_NAME%</title>
     <link rel="icon" type="image/png" href="/narwhal-logo-256.png" />
+    <!-- Dark or light before the first paint; src/ui/theme.ts keeps it up to date. -->
+    <script>
+      if (matchMedia('(prefers-color-scheme: dark)').matches) document.documentElement.dataset.theme = 'dark';
+    </script>
   </head>
   <body>
     <div id="app"></div>

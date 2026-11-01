@@ -28,39 +28,40 @@
   --k-blank: #7b8494;
   --chip-hover: rgba(0, 0, 0, 0.06);
   --line-focus: rgba(47, 111, 222, 0.05);
-  color-scheme: light dark;
+  color-scheme: light;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   font-size: 14px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #1e1e20;
-    --fg: #ececf0;
-    --muted: #9a9aa2;
-    --line: #333338;
-    --sidebar: #252528;
-    --canvas: #121214;
-    --accent: #4b8bf5;
-    --chord: #ff8a7a;
-    --chorus: #f0b257;
-    --verse: #6aa8ee;
-    --bridge: #b292f5;
-    --note: #5cc68c;
-    --break: #9aa3b2;
-    --k-text: #6aa8ee;
-    --k-image: #5cc68c;
-    --k-box: #b292f5;
-    --k-lines: #f0b257;
-    --k-space: #9aa3b2;
-    --k-rule: #4cc4d2;
-    --k-song: #6aa8ee;
-    --k-page: #b292f5;
-    --k-toc: #f0b257;
-    --k-blank: #9aa3b2;
-    --chip-hover: rgba(255, 255, 255, 0.08);
-    --line-focus: rgba(75, 139, 245, 0.08);
-  }
+/* Dark theme: data-theme is set on <html> from the system setting (index.html and
+   src/ui/theme.ts), so that the desktop app can follow the theme TinyJS reports. */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #1e1e20;
+  --fg: #ececf0;
+  --muted: #9a9aa2;
+  --line: #333338;
+  --sidebar: #252528;
+  --canvas: #121214;
+  --accent: #4b8bf5;
+  --chord: #ff8a7a;
+  --chorus: #f0b257;
+  --verse: #6aa8ee;
+  --bridge: #b292f5;
+  --note: #5cc68c;
+  --break: #9aa3b2;
+  --k-text: #6aa8ee;
+  --k-image: #5cc68c;
+  --k-box: #b292f5;
+  --k-lines: #f0b257;
+  --k-space: #9aa3b2;
+  --k-rule: #4cc4d2;
+  --k-song: #6aa8ee;
+  --k-page: #b292f5;
+  --k-toc: #f0b257;
+  --k-blank: #9aa3b2;
+  --chip-hover: rgba(255, 255, 255, 0.08);
+  --line-focus: rgba(75, 139, 245, 0.08);
 }
 
 html,
