@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json",
     "test": "vitest run",
-    "cli": "tsx cli/narwhal.ts"
+    "cli": "tsx cli/narwhal.ts",
+    "release": "npm version --message \"Release %s\"",
+    "version": "node scripts/sync-version.mjs && git add tinyjs.json"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.3.0",

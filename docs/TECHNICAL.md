@@ -382,10 +382,13 @@ space. There is no server code and nothing is uploaded: files stay on the user's
 ### Desktop app (TinyJS)
 
 `tinyjs.json` configures the app (its name in `"title"`, which the web build and the CLI
-also read; id `org.narwhal.app`; icon `assets/narwhal-logo.png`), the frontend (`npm run build`,
+also read; id `org.narwhal.app`; icon `assets/narwhal-logo.png`; `version`, set by
+`npm run release`), the frontend (`npm run build`,
 served from `dist/`) and the backend (`tiny/backend/main.ts`, bundled by TinyJS with
 esbuild and run by txiki.js).
 
+- The About panel (app menu) shows the version from `tinyjs.json` and the text of
+  `assets/Credits.html`, which TinyJS copies into the app's `Resources/`.
 - The launcher loads the page from `file://` in the system WebKit. Local reads with
   `fetch` succeed with status 0 there, which the font loader accepts.
 - The backend exposes file operations on the workspace folder (list, read, write, rename,

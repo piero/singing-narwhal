@@ -52,6 +52,29 @@ bundles with esbuild (it imports `src/core/sfnt.ts`). The backend runs in txiki.
 (`~/.tinyjs/bin/tjs run script.js`), not against Node's. For example, `tjs.readFile`
 always returns bytes.
 
+The macOS **About** panel shows the app name and icon, the version from `tinyjs.json` and
+the text in `assets/Credits.html` (only in a built app, not in `tinyjs dev`).
+
+### Releases
+
+Versions follow [semantic versioning](https://semver.org) and each release is a Git tag
+`vX.Y.Z`. On `main`, with everything committed:
+
+```sh
+npm run release -- patch    # 0.1.0 → 0.1.1: fixes only
+npm run release -- minor    # 0.1.0 → 0.2.0: new features
+npm run release -- major    # 0.1.0 → 1.0.0: breaking changes (e.g. file formats)
+npm run release -- 0.3.0    # or an exact version
+git push --follow-tags      # publish the commit and the tag
+tinyjs build --dmg          # .dmg named after the version, in .build/
+```
+
+`npm run release` is `npm version`: it refuses to run with uncommitted changes, sets the
+version in `package.json` and `package-lock.json`, runs `scripts/sync-version.mjs` to copy
+it into `tinyjs.json` (where the desktop app reads it), then commits "Release X.Y.Z" and
+tags it `vX.Y.Z`. Don't edit the version by hand. To undo a release that hasn't been
+pushed: `git tag -d vX.Y.Z && git reset --hard HEAD~1`.
+
 ## Code structure
 
 ```
@@ -101,6 +124,8 @@ tiny/backend/main.ts       TinyJS backend: file access on disk, installed fonts
 public/fonts/              bundled fonts and their licences (also read by the CLI)
 public/narwhal-logo-256.png logo for the web page (favicon, sidebar, welcome screen)
 assets/narwhal-logo.png     logo master; the desktop app's icon (tinyjs.json "icon")
+assets/Credits.html        text of the macOS About panel
+scripts/sync-version.mjs   copies the release version into tinyjs.json (npm run release)
 docs/                      technical overview and this guide
 ```
 
