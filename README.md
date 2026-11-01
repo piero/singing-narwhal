@@ -22,7 +22,7 @@ Songs with chords, laid out for printing, assembled into songbooks.
 
 | | Where your files are kept | Good for |
 |---|---|---|
-| **Desktop app** (macOS; Windows in beta) | a folder on your computer, `~/Documents/SingingNarwhal` by default | a group's real songbook |
+| **Desktop app** (macOS; Windows and Linux in beta) | a folder on your computer, `~/Documents/SingingNarwhal` by default | a group's real songbook |
 | **Website in Chrome or Edge** | a folder on your computer that you choose | the same, without installing anything |
 | **Website in Safari or Firefox** | inside the browser, until you download a backup | trying it out, quick edits |
 
@@ -31,11 +31,14 @@ Download the latest desktop app
 
 - [**macOS**](https://github.com/piero/singing-narwhal/releases/latest/download/Singing-Narwhal-macos.dmg) (Apple Silicon and Intel)
 - [**Windows**](https://github.com/piero/singing-narwhal/releases/latest/download/Singing-Narwhal-windows.zip) (beta)
+- **Linux** (beta): [x86_64](https://github.com/piero/singing-narwhal/releases/latest/download/Singing-Narwhal-linux-x86_64.tar.gz)
+  or [ARM](https://github.com/piero/singing-narwhal/releases/latest/download/Singing-Narwhal-linux-arm64.tar.gz)
 
 Older versions and what changed in each are on the
 [releases page](https://github.com/piero/singing-narwhal/releases). The app isn't signed yet, so the first time macOS refuses to open it: go to System Settings → Privacy &
 Security and click **Open Anyway**. On Windows, unzip it, run `narwhal.exe` and, if
-warned, click **More info → Run anyway**.
+warned, click **More info → Run anyway**. On Linux, unpack it and run `narwhal`; it needs
+WebKitGTK 4.1 (`sudo apt install libwebkit2gtk-4.1-0` on Debian/Ubuntu 24.04 or newer).
 
 The website also works on phones and tablets: the sidebar opens from ☰, and on narrow
 screens **Edit | Preview** at the top switches between the editor and the printed page.

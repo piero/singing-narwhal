@@ -70,13 +70,16 @@ git push --follow-tags      # publish the commit and the tag
 
 Pushing the tag starts the **Release** workflow (`.github/workflows/release.yml`) on GitHub
 Actions. It checks that the tag matches `package.json`, runs the type check and tests,
-builds the desktop app on GitHub's macOS and Windows machines and publishes a GitHub
+builds the desktop app on GitHub's macOS, Windows and Linux machines and publishes a GitHub
 release with:
 
 - `Singing-Narwhal-macos.dmg`: one app for Apple Silicon and Intel Macs
   (`tinyjs build --universal --dmg`);
 - `Singing-Narwhal-windows.zip`: the portable Windows app (`narwhal.exe` and
-  `launcher.exe`, from `tinyjs build`).
+  `launcher.exe`, from `tinyjs build`);
+- `Singing-Narwhal-linux-x86_64.tar.gz` and `Singing-Narwhal-linux-arm64.tar.gz`: the
+  portable Linux app (`narwhal`, `launcher` and `icon.png`, from `tinyjs build` on
+  Ubuntu 24.04). It runs in the system WebKitGTK 4.1, which users install themselves.
 
 The names carry no version (the release title does), so the download links in the README,
 `releases/latest/download/<name>`, always fetch the newest release.

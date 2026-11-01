@@ -1,8 +1,9 @@
 # Desktop app builds for a release. Pushing a version tag (`npm run release`, then
 # `git push --follow-tags`; see "Releases" in docs/DEVELOPMENT.md) builds a universal
-# macOS .dmg and a portable Windows .zip, both unsigned, and publishes them as a GitHub
-# release. Run it by hand (Actions → Release → Run workflow) to test the builds: they
-# are kept as workflow artifacts, and no release is made.
+# macOS .dmg, a portable Windows .zip and Linux tarballs (x86_64 and arm64), all
+# unsigned, and publishes them as a GitHub release. Run it by hand (Actions → Release →
+# Run workflow) to test the builds: they are kept as workflow artifacts, and no release
+# is made.
 name: Release
 
 on:
@@ -84,9 +85,45 @@ jobs:
           path: Singing-Narwhal-windows.zip
           if-no-files-found: error
 
+  linux:
+    strategy:
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+      - run: npm ci
+      # The installer checks that the system WebKitGTK, which the app runs in, is there.
+      - name: Install TinyJS
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-0
+          curl -fsSL https://tinyjs.app/install | sh
+      - run: ~/.tinyjs/tinyjs build
+      # A portable folder: narwhal (the app, with its pages inside), launcher and
+      # icon.png, which must stay next to it. A tarball keeps them executable.
+      - name: Pack the app
+        run: |
+          mkdir 'Singing Narwhal'
+          cp dist/narwhal dist/launcher dist/icon.png 'Singing Narwhal'
+          tar -czf Singing-Narwhal-linux-${{ matrix.arch }}.tar.gz 'Singing Narwhal'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-${{ matrix.arch }}
+          path: Singing-Narwhal-linux-${{ matrix.arch }}.tar.gz
+          if-no-files-found: error
+
   release:
     if: github.ref_type == 'tag'
-    needs: [macos, windows]
+    needs: [macos, windows, linux]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -109,6 +146,10 @@ jobs:
             `narwhal.exe` (keep `launcher.exe` next to it). Windows may warn that it protected
             your PC: click **More info → Run anyway**. Needs the WebView2 runtime, included in
             Windows 11.
+          - **Linux** (beta): `Singing-Narwhal-linux-x86_64.tar.gz`, or `-arm64` for ARM
+            computers. Unpack it anywhere and run `narwhal` (keep `launcher` and `icon.png`
+            next to it). Needs WebKitGTK 4.1: `sudo apt install libwebkit2gtk-4.1-0` on
+            Debian/Ubuntu (24.04 or newer).
 
           EOF
           gh release create "$GITHUB_REF_NAME" Singing-Narwhal-* \
