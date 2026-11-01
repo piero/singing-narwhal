@@ -1,6 +1,6 @@
-<p align="center"><img src="public/narwal-logo-256.png" alt="" width="160"></p>
+<p align="center"><img src="public/narwhal-logo-256.png" alt="" width="160"></p>
 
-# Singing Narwal
+# Singing Narwhal
 
 Songs with chords, laid out for printing, assembled into songbooks.
 
@@ -21,7 +21,7 @@ Songs with chords, laid out for printing, assembled into songbooks.
 
 | | Where your files are kept | Good for |
 |---|---|---|
-| **Desktop app** (macOS) | a folder on your computer, `~/Documents/SingingNarwal` by default | a group's real songbook |
+| **Desktop app** (macOS) | a folder on your computer, `~/Documents/SingingNarwhal` by default | a group's real songbook |
 | **Website in Chrome or Edge** | a folder on your computer that you choose | the same, without installing anything |
 | **Website in Safari or Firefox** | inside the browser, until you download a backup | trying it out, quick edits |
 
@@ -37,7 +37,7 @@ Files kept inside the browser are easier to lose (see [below](#if-you-work-in-th
 
 ### Start
 
-- **Desktop app:** open it. On first launch it creates `~/Documents/SingingNarwal` and
+- **Desktop app:** open it. On first launch it creates `~/Documents/SingingNarwhal` and
   works there. To use another folder, click **Open folder…**; the app reopens it next
   time.
 - **Website, Chrome or Edge:** click **Open folder…** and pick (or create) a folder for
@@ -52,7 +52,7 @@ The sidebar always shows where the open workspace is.
 
 1. Click **Import…** and choose files, drag them onto the dialog, or paste text and click
    **Add pasted text**. In the desktop app you can also open `.odt`, `.odg` and `.cho`
-   files from Finder (**Open With → Singing Narwal**) or drop them on its Dock icon.
+   files from Finder (**Open With → Singing Narwhal**) or drop them on its Dock icon.
 2. The files are listed under *To import*. Click a song to see its converted text (in
    ChordPro) and correct it if needed; ✕ leaves a file out.
 3. Click **Done** to copy them into the workspace, or **Cancel** to import nothing.
@@ -154,5 +154,5 @@ shows the date of your last backup and warns when something changed since.
 
 ## Licence
 
-Singing Narwal is free software under the [GNU General Public License v3.0 or later](LICENSE).
+Singing Narwhal is free software under the [GNU General Public License v3.0 or later](LICENSE).
 Songbooks you make with it are yours and are not covered by the GPL.

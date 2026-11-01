@@ -1,6 +1,6 @@
 # Developer guide
 
-How to run, test and change Singing Narwal. For how the pieces fit together, read the
+How to run, test and change Singing Narwhal. For how the pieces fit together, read the
 [technical overview](TECHNICAL.md) first.
 
 ## Requirements
@@ -94,11 +94,11 @@ src/
     assets.svelte.ts       fonts (bundled + workspace) and image URLs
     i18n.svelte.ts         English and Italian strings
     settings.svelte.ts     preferences remembered per browser
-cli/narwal.ts              command line: PDF export and import
+cli/narwhal.ts              command line: PDF export and import
 tiny/backend/main.js       TinyJS backend: file access on disk
 public/fonts/              bundled Liberation fonts (also read by the CLI)
-public/narwal-logo-256.png logo for the web page (favicon, sidebar, welcome screen)
-assets/narwal-logo.png     logo master; the desktop app's icon (tinyjs.json "icon")
+public/narwhal-logo-256.png logo for the web page (favicon, sidebar, welcome screen)
+assets/narwhal-logo.png     logo master; the desktop app's icon (tinyjs.json "icon")
 docs/                      technical overview and this guide
 ```
 
@@ -137,15 +137,15 @@ npm test && npm run check && npm run build
   doesn't exist.
 - **Don't hard-code the product name.** It lives only in `tinyjs.json` (`"title"`): Vite
   injects it as `__APP_NAME__` and into `index.html` (`%APP_NAME%`), and the CLI reads it
-  from there. Internal identifiers use the generic `narwal` (database `narwal-db`,
-  storage keys `narwal:…`, app id `org.narwal.app`) and must not change with a rename:
+  from there. Internal identifiers use the generic `narwhal` (database `narwhal-db`,
+  storage keys `narwhal:…`, app id `org.narwhal.app`) and must not change with a rename:
   changing them makes users lose their browser data or settings.
 - **Import `core/pdf` dynamically in the UI** (`await import('../core/pdf')`): pdf-lib
   is only needed when exporting, so it stays out of the initial download.
 - **Never report a failed save as saved.** Writes must throw on failure; autosaves go
   through `trackSave` so failures reach the error bar.
-- **The logo** has one master, `assets/narwal-logo.png`. After changing it, regenerate
-  the web copy: `sips -Z 256 assets/narwal-logo.png --out public/narwal-logo-256.png`.
+- **The logo** has one master, `assets/narwhal-logo.png`. After changing it, regenerate
+  the web copy: `sips -Z 256 assets/narwhal-logo.png --out public/narwhal-logo-256.png`.
 - Match the style of the surrounding code: 2-space indentation, single quotes, short
   comments that explain why rather than what. There is no formatter configured yet.
 
@@ -215,7 +215,7 @@ like the rest of the project.
 - [x] Workspaces: a folder on disk (desktop app, Chrome/Edge) or browser storage
       (IndexedDB); folder remembered between sessions; backup reminder; restore from
       `.zip`; failed saves reported.
-- [x] Desktop app starts in `~/Documents/SingingNarwal` or the last folder used.
+- [x] Desktop app starts in `~/Documents/SingingNarwhal` or the last folder used.
 - [x] Which songbooks include each song and page (and the reverse) shown in the sidebar
       and the editors; songs and pages in no songbook marked and filterable.
 - [x] Rename and delete files, one or many at once, keeping songbooks consistent (the

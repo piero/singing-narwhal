@@ -495,7 +495,7 @@ const it: Dict = {
 };
 
 const DICTS: Record<Lang, Dict> = { en, it };
-const KEY = 'narwal:lang';
+const KEY = 'narwhal:lang';
 
 function detect(): Lang {
   try {

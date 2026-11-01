@@ -1,6 +1,6 @@
 # Technical overview
 
-How Singing Narwal is built, how it stores files, and how it is distributed. For using the
+How Singing Narwhal is built, how it stores files, and how it is distributed. For using the
 app, see the [README](../README.md); for working on the code, see the
 [developer guide](DEVELOPMENT.md).
 
@@ -27,7 +27,7 @@ flowchart TB
     Import["import/<br/>.odt, .odg and .txt converter"]
   end
 
-  CLI["cli/narwal.ts<br/>(Node, tsx)"]
+  CLI["cli/narwhal.ts<br/>(Node, tsx)"]
 
   subgraph Storage["Workspace implementations (src/ui/workspace.ts)"]
     BW["BrowserWorkspace<br/>IndexedDB"]
@@ -248,13 +248,13 @@ to the workspace root with `/` separators.
 
 ### Browser storage (IndexedDB)
 
-- Database `narwal-db` (`src/ui/idb.ts`) with two stores: `files` (path → bytes) and
+- Database `narwhal-db` (`src/ui/idb.ts`) with two stores: `files` (path → bytes) and
   `meta` (backup times, the remembered folder handle, a "seeded" flag marking that the one-time setup ran).
 - All files are loaded into memory when the workspace opens; reads are served from
   memory. A write resolves only after the IndexedDB transaction commits, and **throws** if
   the browser refuses it, so the app never reports a failed save as saved.
 - The database is at version 2, which adds no data: upgrading re-runs the setup, which
-  creates any missing store (Firefox was seen with a version-1 `narwal-db` that had none).
+  creates any missing store (Firefox was seen with a version-1 `narwhal-db` that had none).
   Open connections close on `versionchange`, so a newer app in another tab can upgrade.
 - If the browser's storage fails or does not answer within 8 seconds at startup (e.g. an
   old tab blocks the upgrade), the app keeps the session in memory, says why in the error
@@ -264,8 +264,8 @@ to the workspace root with `/` separators.
   the browser not to evict it under storage pressure. While protection is granted the
   sidebar says "Protected from automatic deletion". The Safari 7-day warning stays: Apple
   does not document whether persistence exempts a site from it.
-- Earlier versions used `localStorage`, then a database named `narwal-score`; their data
-  is moved to `narwal-db` once, and the old storage is removed.
+- Earlier versions used `localStorage`, then a database named `narwhal-score`; their data
+  is moved to `narwhal-db` once, and the old storage is removed.
 - Without IndexedDB (some private windows), files are kept in memory only and the sidebar
   says so.
 - The data belongs to one origin (scheme + host + port). Sites under a shared origin,
@@ -294,8 +294,8 @@ folder.
 
 The desktop app never uses the webview's own storage. At startup it reads the last folder
 from TinyJS's settings store (`tiny.store`, kept in
-`~/Library/Application Support/org.narwal.app/`). If there is none, or it no longer
-exists, it creates `<Documents>/SingingNarwal` (from `tiny.app.paths()`) and uses that.
+`~/Library/Application Support/org.narwhal.app/`). If there is none, or it no longer
+exists, it creates `<Documents>/SingingNarwhal` (from `tiny.app.paths()`) and uses that.
 
 ### Saving
 
@@ -323,7 +323,7 @@ space. There is no server code and nothing is uploaded: files stay on the user's
 ### Desktop app (TinyJS)
 
 `tinyjs.json` configures the app (its name in `"title"`, which the web build and the CLI
-also read; id `org.narwal.app`; icon `assets/narwal-logo.png`), the frontend (`npm run build`,
+also read; id `org.narwhal.app`; icon `assets/narwhal-logo.png`), the frontend (`npm run build`,
 served from `dist/`) and the backend (`tiny/backend/main.js`, run by txiki.js).
 
 - The launcher loads the page from `file://` in the system WebKit. Local reads with
@@ -339,7 +339,7 @@ served from `dist/`) and the backend (`tiny/backend/main.js`, run by txiki.js).
 
 ### Command line
 
-`cli/narwal.ts` renders songs and songbooks to PDF and converts `.odt`/`.txt` files to
+`cli/narwhal.ts` renders songs and songbooks to PDF and converts `.odt`/`.txt` files to
 ChordPro, using the same `src/core` code with fonts read from `public/fonts/`. See the
 [developer guide](DEVELOPMENT.md#command-line).
 

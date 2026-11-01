@@ -46,8 +46,8 @@ function fromBase64(s: string): Uint8Array {
 // --- Browser workspace (IndexedDB) ------------------------------------------
 
 // Earlier versions kept files in localStorage; they are moved to IndexedDB once.
-const LEGACY_FILE = 'narwal:file:';
-const LEGACY_DELETED = 'narwal:deleted:';
+const LEGACY_FILE = 'narwhal:file:';
+const LEGACY_DELETED = 'narwhal:deleted:';
 
 export interface BackupState {
   /** Time of the last change to the files (ms), 0 if never changed. */
@@ -361,7 +361,7 @@ export function tiny(): Tiny | undefined {
 }
 
 /** Workspace folder created in ~/Documents on the desktop app's first launch. */
-const DEFAULT_FOLDER = 'SingingNarwal';
+const DEFAULT_FOLDER = 'SingingNarwhal';
 
 export class TinyWorkspace implements Workspace {
   kind = 'folder' as const;
@@ -380,7 +380,7 @@ export class TinyWorkspace implements Workspace {
   }
 
   /**
-   * The folder to start in: the one used last time, or ~/Documents/SingingNarwal
+   * The folder to start in: the one used last time, or ~/Documents/SingingNarwhal
    * (created if needed) on first launch or if the last one is gone.
    */
   static async start(): Promise<{ ws: TinyWorkspace; notice?: string }> {

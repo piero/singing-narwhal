@@ -12,7 +12,7 @@ export interface SongExportSettings {
   fontSize: number;
 }
 
-const KEY = 'narwal:settings';
+const KEY = 'narwhal:settings';
 
 function load(): SongExportSettings {
   const d: SongExportSettings = { page: 'A5', imposition: 'copies', showChords: true, font: 'LiberationSerif', fontSize: 11 };

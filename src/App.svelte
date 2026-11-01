@@ -238,7 +238,7 @@
   async function downloadZip() {
     try {
       await settleSaves();
-      const name = workspace instanceof BrowserWorkspace ? `narwal-backup-${new Date().toISOString().slice(0, 10)}.zip` : `${workspace.name}.zip`;
+      const name = workspace instanceof BrowserWorkspace ? `narwhal-backup-${new Date().toISOString().slice(0, 10)}.zip` : `${workspace.name}.zip`;
       if ((await saveFile(name, await zipWorkspace(workspace), 'application/zip')) && workspace instanceof BrowserWorkspace) await workspace.markBackedUp();
     } catch (e) {
       error = t('error.op', { msg: (e as Error).message });
@@ -431,8 +431,8 @@
     const books = usedIn[f] ?? [];
     return text + '\n' + (books.length ? t('side.inBooks', { books: books.map(baseName).join(', ') }) : t('side.inNoBook'));
   }
-  // Web-sized copy of assets/narwal-logo.png (the master, also the app icon).
-  const LOGO = import.meta.env.BASE_URL + 'narwal-logo-256.png';
+  // Web-sized copy of assets/narwhal-logo.png (the master, also the app icon).
+  const LOGO = import.meta.env.BASE_URL + 'narwhal-logo-256.png';
 </script>
 
 {#snippet item(f: string, text: string)}

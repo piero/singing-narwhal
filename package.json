@@ -1,5 +1,5 @@
 {
-  "name": "narwal",
+  "name": "narwhal",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json",
     "test": "vitest run",
-    "cli": "tsx cli/narwal.ts"
+    "cli": "tsx cli/narwhal.ts"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.3.0",

@@ -1,9 +1,9 @@
 {
-  "name": "narwal",
-  "title": "Singing Narwal",
-  "id": "org.narwal.app",
+  "name": "narwhal",
+  "title": "Singing Narwhal",
+  "id": "org.narwhal.app",
   "version": "0.1.0",
-  "icon": "assets/narwal-logo.png",
+  "icon": "assets/narwhal-logo.png",
   "size": "1280x800",
   "backend": "tiny/backend/main.js",
   "frontend": {

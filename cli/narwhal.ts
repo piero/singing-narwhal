@@ -1,7 +1,7 @@
 // Command line:
 //
-//   narwal <song.cho | book.songbook.yaml> [options]     render a PDF
-//   narwal import <files.odt|.txt ...> [-o songs/]       convert to ChordPro
+//   narwhal <song.cho | book.songbook.yaml> [options]     render a PDF
+//   narwhal import <files.odt|.txt ...> [-o songs/]       convert to ChordPro
 //
 //   -o, --output <file.pdf>     output file (default: input name + .pdf)
 //   --page A4|A5|A6|Letter      logical page size (default A5 for books, A4 for songs)
@@ -56,7 +56,7 @@ if (positionals[0] === 'import') {
 
 const input = positionals[0];
 if (!input) {
-  console.error('usage: narwal <song.cho | book.songbook.yaml> [-o out.pdf] [--page A5] [--imposition booklet] ...');
+  console.error('usage: narwhal <song.cho | book.songbook.yaml> [-o out.pdf] [--page A5] [--imposition booklet] ...');
   process.exit(1);
 }
 

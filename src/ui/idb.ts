@@ -4,12 +4,12 @@
 // Two object stores: "files" (workspace path → bytes) and "meta" (small values:
 // backup times, the folder handle).
 
-const DB_NAME = 'narwal-db';
+const DB_NAME = 'narwhal-db';
 // Version 2 adds no data: upgrading re-runs the setup below, which creates any missing
 // store. (Firefox was seen with a version-1 database that had none.)
 const DB_VERSION = 2;
 // Earlier name of the database; its contents are moved to DB_NAME once.
-const OLD_DB_NAME = 'narwal-score';
+const OLD_DB_NAME = 'narwhal-score';
 
 export type Store = 'files' | 'meta';
 
