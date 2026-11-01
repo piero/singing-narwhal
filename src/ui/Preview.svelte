@@ -4,11 +4,23 @@
   import type { LaidPage } from '../core/layout';
   import type { Sheet } from '../core/impose';
 
+  /** A rectangle drawn over the first sheet, e.g. the boundaries of page elements. */
+  export interface Outline {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    /** CSS colour. */
+    color: string;
+    highlight?: boolean;
+  }
+
   let {
     sheets,
     imageUrl = () => '',
     onlineclick,
-  }: { sheets: Sheet[]; imageUrl?: (src: string) => string; onlineclick?: (line: number) => void } = $props();
+    outlines = [],
+  }: { sheets: Sheet[]; imageUrl?: (src: string) => string; onlineclick?: (line: number) => void; outlines?: Outline[] } = $props();
 
   const drawable = (p: LaidPage | null) => p?.items ?? [];
 </script>
@@ -41,6 +53,11 @@
           {/each}
         </g>
       {/each}
+      {#if si === 0}
+        {#each outlines as o, oi (oi)}
+          <rect class="outline" class:highlight={o.highlight} x={o.x} y={o.y} width={o.width} height={o.height} style:--c={o.color} />
+        {/each}
+      {/if}
       {#if sheet.foldLine && sheet.placements.length === 2}
         <line x1={sheet.width / 2} y1="0" x2={sheet.width / 2} y2={sheet.height} stroke="#9ab" stroke-width="0.4" />
       {/if}
@@ -65,6 +82,18 @@
   text {
     fill: #111;
     white-space: pre;
+  }
+  .outline {
+    fill: none;
+    stroke: var(--c);
+    stroke-width: 0.6;
+    stroke-dasharray: 3 2;
+    pointer-events: none;
+  }
+  .outline.highlight {
+    fill: color-mix(in srgb, var(--c) 12%, transparent);
+    stroke-width: 1.2;
+    stroke-dasharray: none;
   }
   text.link {
     cursor: text;

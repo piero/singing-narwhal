@@ -1,22 +1,27 @@
 <script lang="ts">
-  // Import songs (.odt, .txt, .cho), songbooks laid out in LibreOffice Draw (.odg),
-  // images and fonts into the workspace. Songs written with chords above the lyrics are
-  // converted to ChordPro; an .odg becomes a songbook with its own pages and songs.
-  // Nothing is written until Done: until then the converted songs can be reviewed
-  // and edited, and Cancel discards them.
+  // The one way into the workspace from outside: single files (songs, pages, songbooks,
+  // images, fonts), whole folders and .zip files, dropped or chosen, and pasted songs.
+  // Songs written with chords above the lyrics are converted to ChordPro; an .odg becomes
+  // a songbook with its own pages and songs. Single files go into songs/, pages/, images/
+  // and fonts/; the files of a folder or .zip keep their paths, so its songbooks still find
+  // their songs and pages. Nothing is written until Done: until then the converted songs
+  // can be reviewed and edited, and Cancel discards them.
   import type { FontRegistry } from '../core/fonts';
   import { isFontFile } from '../core/fonts';
   import { IMPORTABLE, importFile, importText, slugify } from '../core/import';
   import { importOdg } from '../core/import/odg';
-  import { serializePage } from '../core/pages';
-  import { defaultSongbook, parseSongbook, serializeSongbook, type ContentItem } from '../core/songbook';
+  import { pageImages, parsePage, serializePage } from '../core/pages';
+  import { defaultSongbook, parseSongbook, resolveBookPath, serializeSongbook, songbookFiles, type ContentItem } from '../core/songbook';
   import { t } from './i18n.svelte';
-  import { isImage, readExternalFiles, tiny, type Workspace } from './workspace';
+  import { filesFromFolder, filesFromZip, isHidden, isImage, isPage, isSong, isSongbook, readExternalFiles, tiny, type Workspace } from './workspace';
 
   let { workspace, fonts, files, onclose }: { workspace: Workspace; fonts: FontRegistry; files: string[]; onclose: (opened?: string) => void } = $props();
 
-  /** A file waiting to be written: text (song, page, songbook; editable) or an image/font. */
-  type Item = { source: string; path: string; text?: string; bytes?: Uint8Array; book?: number };
+  /**
+   * A file waiting to be written: text (song, page, songbook; editable) or an image/font.
+   * `replaces`: a file with this path is already in the workspace.
+   */
+  type Item = { source: string; path: string; text?: string; bytes?: Uint8Array; book?: number; replaces?: boolean };
   /** An imported .odg, kept to convert it again if its page order is changed. */
   type BookSource = { id: number; name: string; bytes: Uint8Array; booklet: boolean };
 
@@ -25,6 +30,8 @@
   /** Paths left out of the import, removed from the songbooks that list them. */
   const dropped = new Set<string>();
   let errors: string[] = $state([]);
+  /** Files that the songbooks and pages to import use, but that neither they nor the workspace have. */
+  let missing: string[] = $state([]);
   /** The song shown in the text box, or -1 when the box is for pasting a new song. */
   let selected = $state(-1);
   let pasted = $state('');
@@ -43,12 +50,16 @@
     return name;
   }
 
+  const decode = (bytes: Uint8Array) => new TextDecoder().decode(bytes);
+
   function convert(name: string, bytes: Uint8Array): Item {
     const base = name.split('/').pop()!;
     const ext = base.slice(base.lastIndexOf('.')).toLowerCase();
     const stem = base.replace(/\.[^.]+$/, '');
     if (isImage(base)) return { source: base, path: unique(`images/${stem}`, ext), bytes };
     if (isFontFile(base)) return { source: base, path: unique(`fonts/${stem}`, ext), bytes };
+    if (isSongbook(base)) return { source: base, path: unique(base.replace(/\.songbook\.ya?ml$/i, ''), '.songbook.yaml'), text: decode(bytes) };
+    if (isPage(base)) return { source: base, path: unique(`pages/${base.replace(/\.page\.ya?ml$/i, '')}`, '.page.yaml'), text: decode(bytes) };
     if (!IMPORTABLE.test(base)) throw new Error('unsupported file type');
     const song = importFile(base, bytes, fonts);
     return { source: base, path: unique(`songs/${slugify(song.title)}`, '.cho'), text: song.chordpro };
@@ -119,9 +130,36 @@
     await addBook(src);
   }
 
+  /**
+   * The files of a folder or .zip (`name`): songs, pages, songbooks, images and fonts keep
+   * their paths, replacing files with the same path; other files are converted or skipped.
+   */
+  async function addProject(name: string, entries: [string, Uint8Array][]) {
+    const other: { name: string; bytes: Uint8Array }[] = [];
+    let skipped = 0;
+    for (const [path, bytes] of entries) {
+      if (isHidden(path)) continue;
+      if (isSong(path) || isSongbook(path) || isPage(path) || isImage(path) || isFontFile(path)) {
+        const text = isImage(path) || isFontFile(path) ? undefined : decode(bytes);
+        const i = items.findIndex((it) => it.path === path);
+        if (i >= 0) items.splice(i, 1);
+        taken.add(path);
+        items.push({ source: `${name}/${path}`, path, text, bytes: text === undefined ? bytes : undefined, replaces: files.includes(path) });
+      } else if (/\.odg$/i.test(path) || IMPORTABLE.test(path)) other.push({ name: path, bytes });
+      else skipped++;
+    }
+    await add(other);
+    if (skipped) errors.push(t('import.skipped', { name, n: skipped }));
+    if (!entries.length) errors.push(t('import.empty', { name }));
+  }
+
   async function add(list: { name: string; bytes: Uint8Array }[]) {
     for (const it of list) {
       try {
+        if (/\.zip$/i.test(it.name)) {
+          await addProject(it.name.replace(/\.zip$/i, ''), filesFromZip(it.bytes));
+          continue;
+        }
         if (/\.odg$/i.test(it.name)) {
           const src = { id: books.length, name: it.name.split('/').pop()!, bytes: it.bytes, booklet: true };
           books.push(src);
@@ -135,6 +173,24 @@
         errors.push(t('import.error', { file: it.name, msg: (e as Error).message }));
       }
     }
+    await checkReferences();
+  }
+
+  async function checkReferences() {
+    const have = new Set([...files, ...items.map((it) => it.path)]);
+    const readText = async (p: string) => items.find((it) => it.path === p)?.text ?? workspace.readText(p);
+    const out = new Set<string>();
+    for (const it of items) {
+      if (it.text === undefined) continue;
+      try {
+        if (isSongbook(it.path)) for (const p of (await songbookFiles(it.path, [...have], readText)).missing) out.add(p);
+        // Paths in a page are relative to the songbook that shows it; check from the top folder.
+        else if (isPage(it.path)) for (const src of pageImages(parsePage(it.text))) if (!have.has(resolveBookPath('', src))) out.add(src);
+      } catch {
+        // Not valid YAML: the editor reports it once the file is opened.
+      }
+    }
+    missing = [...out].sort();
   }
 
   /** Files given from outside the dialog (e.g. opened with the desktop app from Finder). */
@@ -152,15 +208,51 @@
     const input = document.createElement('input');
     input.type = 'file';
     input.multiple = true;
-    input.accept = '.odt,.odg,.txt,.cho,.chordpro,.chopro,.crd,.png,.jpg,.jpeg,.ttf,.otf';
+    input.accept = '.odt,.odg,.txt,.cho,.chordpro,.chopro,.crd,.yaml,.yml,.png,.jpg,.jpeg,.ttf,.otf,.zip';
     input.onchange = async () => add(await readAll([...(input.files ?? [])]));
     input.click();
+  }
+
+  async function pickFolder() {
+    try {
+      const r = await filesFromFolder();
+      if (r) await addProject(r.name, r.entries);
+    } catch (e) {
+      errors.push(t('import.error', { file: '', msg: (e as Error).message }));
+    }
+  }
+
+  /** All files under a dropped folder, at their paths inside it. */
+  async function readEntry(dir: FileSystemDirectoryEntry, prefix = ''): Promise<[string, Uint8Array][]> {
+    const reader = dir.createReader();
+    const out: [string, Uint8Array][] = [];
+    // readEntries returns the entries in batches, until an empty one.
+    for (let batch; (batch = await new Promise<FileSystemEntry[]>((ok, fail) => reader.readEntries(ok, fail))).length; ) {
+      for (const e of batch) {
+        if (e.name.startsWith('.')) continue;
+        if (e.isDirectory) out.push(...(await readEntry(e as FileSystemDirectoryEntry, prefix + e.name + '/')));
+        else {
+          const f = await new Promise<File>((ok, fail) => (e as FileSystemFileEntry).file(ok, fail));
+          out.push([prefix + e.name, new Uint8Array(await f.arrayBuffer())]);
+        }
+      }
+    }
+    return out;
   }
 
   async function drop(e: DragEvent) {
     e.preventDefault();
     dragging = false;
-    await add(await readAll([...(e.dataTransfer?.files ?? [])]));
+    // Entries must be taken before the first await: the drop data is cleared afterwards.
+    const entries = [...(e.dataTransfer?.items ?? [])].map((it) => it.webkitGetAsEntry?.());
+    const list = [...(e.dataTransfer?.files ?? [])];
+    const single: File[] = [];
+    for (const [i, f] of list.entries()) {
+      const entry = entries[i];
+      if (entry?.isDirectory) await addProject(entry.name, await readEntry(entry as FileSystemDirectoryEntry));
+      else single.push(f);
+    }
+    await add(await readAll(single));
   }
 
   function addPasted() {
@@ -178,6 +270,7 @@
     items.splice(i, 1);
     if (selected === i) selected = -1;
     else if (selected > i) selected--;
+    checkReferences();
   }
 
   async function done() {
@@ -241,8 +334,12 @@
     ondrop={drop}
   >
     <h2>{t('import.title')}</h2>
-    <button class="primary" onclick={pick} disabled={busy}>{t('import.files')}</button>
+    <div class="choose">
+      <button class="primary" onclick={pick} disabled={busy}>{t('import.files')}</button>
+      <button class="primary" onclick={pickFolder} disabled={busy}>{t('import.folder')}</button>
+    </div>
     <p class="help">{t('import.filesHelp')}</p>
+    <p class="help">{t('import.folderHelp')}</p>
     <p class="where">{t('import.where', { where: workspace.kind === 'browser' ? t('where.browser') : t('where.folder', { name: workspace.location ?? workspace.name }) })}</p>
 
     {#if current}
@@ -266,6 +363,7 @@
             {:else}
               <span class="item">{it.source} → {it.path}</span>
             {/if}
+            {#if it.replaces}<span class="replaces">{t('import.replaces')}</span>{/if}
             <button class="remove" title={t('import.remove')} onclick={() => removeItem(i)}>✕</button>
           </li>
         {/each}
@@ -276,6 +374,9 @@
         {/if}
       {/each}
       <p class="help">{t('import.pendingHelp')}</p>
+      {#if missing.length}
+        <p class="warn">{t('import.missing', { list: missing.slice(0, 5).join(', ') + (missing.length > 5 ? ' …' : ''), n: missing.length })}</p>
+      {/if}
     {/if}
     {#if errors.length}
       <ul class="log">{#each errors as m, i (i)}<li>{m}</li>{/each}</ul>
@@ -401,6 +502,21 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  .items .replaces {
+    flex-shrink: 0;
+    font-size: 11px;
+    color: #b06000;
+  }
+  .choose {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .warn {
+    font-size: 12px;
+    margin: 0;
+    color: #b06000;
   }
   .items .remove {
     align-self: center;

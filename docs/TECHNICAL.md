@@ -99,6 +99,20 @@ label; an empty half becomes a blank page. The import dialog assembles them into
 `.songbook.yaml` and converts GIF pictures to PNG (in the browser), since the PDF writer
 embeds only PNG and JPEG.
 
+### Import dialog
+
+`src/ui/ImportDialog.svelte` is the only way in from outside the workspace. Single files
+are converted if needed and put in `songs/`, `pages/`, `images/`, `fonts/` or the top
+folder, with a new name rather than replacing a file. A folder (`filesFromFolder`: the
+desktop app reads it through the backend, browsers use a `webkitdirectory` input, which
+works in Safari and Firefox too), a dropped folder (`webkitGetAsEntry`) or a `.zip`
+(`filesFromZip`: a single top-level folder, as made by the Finder, is removed) is a
+*project*: its songs, pages, songbooks, images and fonts keep their paths, so songbooks
+still find what they list, and replace files with the same path (marked in the list);
+`.odt`, `.txt` and `.odg` files in it are converted; dotfiles, `__MACOSX` and other files
+are skipped. After each addition the dialog lists what the songbooks and pages to import
+use but neither they nor the workspace have. Nothing is written until **Done**.
+
 ## Technologies
 
 | Area | Choice | Why |
@@ -278,9 +292,8 @@ closing, by clearing site data, by Safari after 7 days without a visit
 persistence was not granted.
 
 **Backups.** `BrowserWorkspace` records the time of the last change and the last backup
-(a `.zip` download or a copy to a folder) in `meta`; the sidebar shows them. **Open a
-.zip…** restores a backup; a zip of a folder (as made by the Finder) has its single
-top-level folder removed, and `__MACOSX`, dotfiles and unknown file types are skipped.
+(a `.zip` download or a copy to a folder) in `meta`; the sidebar shows them. Importing
+the `.zip` restores a backup (see *Import dialog*).
 
 ### Folders in the browser
 
@@ -289,6 +302,15 @@ the app asks the browser whether permission is still granted (`queryPermission`)
 reopens the folder directly, otherwise it shows **Reopen folder**, which calls
 `requestPermission` (this needs a click). **Work in browser storage instead** forgets the
 folder.
+
+### Recent folders
+
+Every folder opened, picked or started in is put first in a list of up to 8 recent
+folders (`recentFolders` in `src/ui/workspace.ts`), which the sidebar shows without the
+current one. The desktop app keeps the paths in `tiny.store` (key `recentFolders`); a path
+that no longer exists is reported and dropped when clicked. Browsers keep the folder
+handles in IndexedDB (`meta`, key `recentFolders`), compared with `isSameEntry`; opening
+one asks for permission again. Removing a folder from the list leaves its files alone.
 
 ### Desktop app
 
@@ -317,7 +339,7 @@ space. There is no server code and nothing is uploaded: files stay on the user's
 - Prefer a **dedicated origin** (own domain or subdomain), so browser storage is not
   shared with other sites.
 - Changing the address later means users' browser storage is left behind at the old one;
-  they can move it with **Download all (.zip)** and **Open a .zip…**.
+  they can move it with **Download all (.zip)** and importing that `.zip`.
 - There is no offline mode (no service worker) yet.
 
 ### Desktop app (TinyJS)

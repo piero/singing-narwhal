@@ -10,8 +10,9 @@ Songs with chords, laid out for printing, assembled into songbooks.
   optionally two copies per sheet, ready to cut.
 - **Assemble a songbook** from songs, an index, a cover and other pages, and print it as
   a fold-and-staple booklet.
-- **Import** the songs you already have in `.odt` (LibreOffice/Word) or `.txt` files, or a
-  whole songbook laid out in LibreOffice Draw (`.odg`).
+- **Import** the songs you already have in `.odt` (LibreOffice/Word) or `.txt` files, a
+  whole songbook laid out in LibreOffice Draw (`.odg`), or another songbook folder with
+  its songs and pages.
 - Chords in **Italian (Do Re Mi) or English (C D E)** names; convert or **transpose** a
   song in one click.
 - Interface in **English and Italian**.
@@ -43,6 +44,9 @@ Files kept inside the browser are easier to lose (see [below](#if-you-work-in-th
 - **Website, Chrome or Edge:** click **Open folder…** and pick (or create) a folder for
   your songbook. Next time the site reopens it, or shows **Reopen folder** if the browser
   asks for permission again.
+- **Several songbooks:** keep each in its own folder. The sidebar lists the **Recent
+  folders** (up to 8) so you can switch between them with one click; **×** removes a
+  folder from the list without deleting it.
 - **Website, Safari or Firefox:** just start. Your files are kept in the browser; the
   sidebar says so and reminds you to make backups.
 
@@ -50,11 +54,15 @@ The sidebar always shows where the open workspace is.
 
 ### Bring in songs you already have
 
-1. Click **Import…** and choose files, drag them onto the dialog, or paste text and click
-   **Add pasted text**. In the desktop app you can also open `.odt`, `.odg` and `.cho`
+1. Click **Import…** and use **Choose files…** for single songs, pages or songbooks, or
+   **Choose a folder…** to import a folder with everything in it (for example another
+   songbook with its `songs/`, `pages/` and `images/`). You can also drag files and
+   folders onto the dialog, or paste text and click **Add pasted text**. In the desktop app you can also open `.odt`, `.odg` and `.cho`
    files from Finder (**Open With → Singing Narwhal**) or drop them on its Dock icon.
 2. The files are listed under *To import*. Click a song to see its converted text (in
-   ChordPro) and correct it if needed; ✕ leaves a file out.
+   ChordPro) and correct it if needed; ✕ leaves a file out. Files that would replace one
+   already in the workspace are marked, and the dialog warns if an imported songbook or
+   page uses files that are not there.
 3. Click **Done** to copy them into the workspace, or **Cancel** to import nothing.
 4. Check each imported song in the editor: chords may need a nudge where the original was
    aligned by eye, or written in a font other than Times, Arial, Courier or Liberation.
@@ -66,7 +74,9 @@ The sidebar always shows where the open workspace is.
 | ChordPro songs (from other apps) | `.cho`, `.chordpro`, `.chopro`, `.crd`, `.pro` | copied into `songs/` as they are |
 | Pictures for covers or full pages | `.png`, `.jpg` | copied into `images/` |
 | Extra fonts | `.ttf`, `.otf` | copied into `fonts/`, usable in pages |
-| A backup or a zipped songbook folder | `.zip` (**Open a .zip…**) | its files are added to the workspace |
+| Single pages and songbooks | `.page.yaml`, `.songbook.yaml` | copied into `pages/` and the top folder; to bring the songs and pages a songbook uses, import its folder instead |
+| A songbook folder, or any folder of the files above | a folder (**Choose a folder…**) | everything is added to the workspace in the same subfolders, replacing files with the same path; `.odt`, `.txt` and `.odg` files in it are converted |
+| A backup or a zipped songbook folder | `.zip` | the same as its folder |
 
 Imported files are **copied**: the originals are never changed. Word files (`.docx`,
 `.doc`) must be saved as `.odt` first (in LibreOffice or Word); `.rtf` and `.pdf` cannot be
@@ -122,8 +132,8 @@ Pages and songs can be shared by several songbooks: editing one changes it every
 |---|---|
 | print | **Export PDF** (a song or a songbook) |
 | send one song, songbook or page | ⋯ menu next to it → **Save a copy as…** (`.cho`, `.songbook.yaml`, `.page.yaml`, or the image) |
-| send or move one songbook with everything it uses (songs, pages, images, fonts) | **Download as .zip** in the songbook, or ⋯ menu next to it; the receiver uses **Open a .zip…** |
-| back up everything, or move it to another computer or browser | **Download all (.zip)**, then **Open a .zip…** to restore it |
+| send or move one songbook with everything it uses (songs, pages, images, fonts) | **Download as .zip** in the songbook, or ⋯ menu next to it; the receiver imports it with **Import…** |
+| back up everything, or move it to another computer or browser | **Download all (.zip)**, then import it with **Import…** to restore it |
 | move from the browser to a folder | **Save all to folder…** (desktop app, Chrome, Edge): copies everything and keeps working there |
 
 The ⋯ menu also has **Rename…** and **Delete…**; songbooks that use the file are updated.

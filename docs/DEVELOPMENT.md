@@ -209,12 +209,14 @@ like the rest of the project.
       detected.
 - [x] Songbooks laid out in LibreOffice Draw (`.odg`): sheets split into pages (booklet or
       reading order), embedded songs converted, covers and other pages rebuilt as pages.
+- [x] One import dialog for single files (songs, pages, songbooks, images, fonts), folders
+      and `.zip` files, which keep their subfolders; replaced and missing files flagged.
 - [x] Command-line import and PDF rendering.
 
 **App**
 - [x] Workspaces: a folder on disk (desktop app, Chrome/Edge) or browser storage
-      (IndexedDB); folder remembered between sessions; backup reminder; restore from
-      `.zip`; failed saves reported.
+      (IndexedDB); folder remembered between sessions; recent folders to switch
+      between; backup reminder; restore from `.zip`; failed saves reported.
 - [x] Desktop app starts in `~/Documents/SingingNarwhal` or the last folder used.
 - [x] Which songbooks include each song and page (and the reverse) shown in the sidebar
       and the editors; songs and pages in no songbook marked and filterable.

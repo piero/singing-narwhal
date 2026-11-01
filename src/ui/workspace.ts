@@ -6,7 +6,6 @@
 // - Browser: in the browser's storage (IndexedDB), empty on first use.
 
 import { unzipSync, zipSync } from 'fflate';
-import { isFontFile } from '../core/fonts';
 import { songbookFiles, type FileLoader } from '../core/songbook';
 import { t } from './i18n.svelte';
 import { idbDelete, idbEntries, idbGet, idbPut, idbPutAll, openDb } from './idb';
@@ -250,7 +249,7 @@ type DirHandle = FileSystemDirectoryHandle & {
 
 export class BrowserFolderWorkspace implements Workspace {
   kind = 'folder' as const;
-  constructor(private root: DirHandle) {}
+  constructor(readonly root: DirHandle) {}
   get name() {
     return this.root.name;
   }
@@ -259,8 +258,7 @@ export class BrowserFolderWorkspace implements Workspace {
   }
   static async pick(): Promise<BrowserFolderWorkspace> {
     const h = await (window as unknown as { showDirectoryPicker(o: object): Promise<DirHandle> }).showDirectoryPicker({ mode: 'readwrite' });
-    const db = await openDb();
-    if (db) await idbPut(db, 'meta', 'folder', h).catch(() => {});
+    await rememberHandle(h);
     return new BrowserFolderWorkspace(h);
   }
 
@@ -275,7 +273,9 @@ export class BrowserFolderWorkspace implements Workspace {
     const o = { mode: 'readwrite' };
     let state = await h.queryPermission?.(o).catch(() => 'denied' as const);
     if (state !== 'granted' && ask) state = await h.requestPermission?.(o).catch(() => 'denied' as const);
-    return state === 'granted' ? new BrowserFolderWorkspace(h) : null;
+    if (state !== 'granted') return null;
+    await rememberHandle(h);
+    return new BrowserFolderWorkspace(h);
   }
 
   /** Start in browser storage next time. */
@@ -375,7 +375,7 @@ export class TinyWorkspace implements Workspace {
   static async pick(): Promise<TinyWorkspace | null> {
     const dir = await tiny()!.dialog.pickFolder();
     if (!dir) return null;
-    await tiny()!.store.set('folder', dir);
+    await rememberDir(dir);
     return new TinyWorkspace(dir);
   }
 
@@ -386,10 +386,13 @@ export class TinyWorkspace implements Workspace {
   static async start(): Promise<{ ws: TinyWorkspace; notice?: string }> {
     const tj = tiny()!;
     const last = (await tj.store.get('folder').catch(() => null)) as string | null;
-    if (last && (await tj.api.call('isDir', { path: last }).catch(() => false))) return { ws: new TinyWorkspace(last) };
+    if (last && (await tj.api.call('isDir', { path: last }).catch(() => false))) {
+      await rememberDir(last);
+      return { ws: new TinyWorkspace(last) };
+    }
     const dir = `${(await tj.app.paths()).documents}/${DEFAULT_FOLDER}`;
     await tj.api.call('makeDir', { path: dir });
-    await tj.store.set('folder', dir);
+    await rememberDir(dir);
     const notice = last ? t('ws.folderMissing', { path: last, fallback: dir }) : t('ws.defaultFolder', { path: dir });
     return { ws: new TinyWorkspace(dir), notice };
   }
@@ -426,7 +429,7 @@ export function readAbsoluteFiles(paths: string[]): Promise<{ name: string; byte
 }
 
 /** Desktop app: pick files anywhere on disk and read them. */
-export async function readExternalFiles(types = ['odt', 'odg', 'txt', 'cho', 'chordpro', 'png', 'jpg', 'jpeg', 'ttf', 'otf']): Promise<{ name: string; bytes: Uint8Array }[]> {
+export async function readExternalFiles(types = ['odt', 'odg', 'txt', 'cho', 'chordpro', 'yaml', 'yml', 'png', 'jpg', 'jpeg', 'ttf', 'otf', 'zip']): Promise<{ name: string; bytes: Uint8Array }[]> {
   const t = tiny()!;
   return readAbsoluteFiles((await t.dialog.openFiles({ types })) ?? []);
 }
@@ -516,20 +519,49 @@ export async function copyWorkspace(from: Workspace, to: Workspace): Promise<num
 }
 
 /**
- * Files to restore from a .zip backup: songs, songbooks, pages, images and fonts, at their
- * paths in the zip. A zip of a whole folder (as made by the Finder) has that folder as its
- * only top-level entry, which is dropped.
+ * The files of a .zip (a backup, or a zipped songbook folder) at their paths in the zip,
+ * without dotfiles and __MACOSX. A zip of a whole folder (as made by the Finder) has that
+ * folder as its only top-level entry, which is dropped.
  */
 export function filesFromZip(bytes: Uint8Array): [string, Uint8Array][] {
-  let entries = Object.entries(unzipSync(bytes)).filter(
-    ([p]) => !p.endsWith('/') && !p.split('/').some((part) => part.startsWith('.') || part === '__MACOSX'),
-  );
+  let entries = Object.entries(unzipSync(bytes)).filter(([p]) => !p.endsWith('/') && !isHidden(p));
   const tops = new Set(entries.map(([p]) => p.split('/')[0]));
   if (tops.size === 1 && entries.every(([p]) => p.includes('/'))) {
     const top = [...tops][0].length + 1;
     entries = entries.map(([p, b]) => [p.slice(top), b]);
   }
-  return entries.filter(([p]) => isSong(p) || isSongbook(p) || isPage(p) || isImage(p) || isFontFile(p));
+  return entries;
+}
+
+export const isHidden = (p: string) => p.split('/').some((part) => part.startsWith('.') || part === '__MACOSX');
+
+/**
+ * Pick a folder (e.g. a songbook with its songs and pages) and read all its files, at their
+ * paths inside the folder, without dotfiles. Null if cancelled.
+ */
+export async function filesFromFolder(): Promise<{ name: string; entries: [string, Uint8Array][] } | null> {
+  if (tiny()) {
+    const dir = await tiny()!.dialog.pickFolder();
+    if (!dir) return null;
+    const src = new TinyWorkspace(dir);
+    const paths = (await src.list()).filter((p) => !isHidden(p));
+    return { name: src.name, entries: await Promise.all(paths.map(async (p): Promise<[string, Uint8Array]> => [p, await src.readBytes(p)])) };
+  }
+  // A folder input works in every browser, also those without the File System Access API.
+  return new Promise((resolve) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.webkitdirectory = true;
+    input.onchange = async () => {
+      const picked = [...(input.files ?? [])];
+      // Paths start with the picked folder's name: "Folder/songs/a.cho".
+      const name = picked[0]?.webkitRelativePath.split('/')[0] ?? '';
+      const files = picked.map((f): [string, File] => [f.webkitRelativePath.slice(name.length + 1), f]).filter(([p]) => !isHidden(p));
+      resolve({ name, entries: await Promise.all(files.map(async ([p, f]): Promise<[string, Uint8Array]> => [p, new Uint8Array(await f.arrayBuffer())])) });
+    };
+    input.oncancel = () => resolve(null);
+    input.click();
+  });
 }
 
 /** The example songbook in examples/, bundled into the app, at its paths there. */
@@ -561,6 +593,91 @@ export async function zipSongbook(ws: Workspace, path: string): Promise<{ zip: U
   const entries: Record<string, Uint8Array> = {};
   for (const f of files) entries[f] = await ws.readBytes(f);
   return { zip: zipSync(entries), missing };
+}
+
+// --- Recent folders --------------------------------------------------------
+//
+// Folders worked in before, most recent first, to switch between several of them. The
+// desktop app keeps paths in its settings store; browsers keep folder handles in IndexedDB
+// ("meta" store) and ask for permission again when one is reopened.
+
+const MAX_RECENT = 8;
+const RECENT_KEY = 'recentFolders';
+
+export interface RecentFolder {
+  name: string;
+  /** Full path when known (the desktop app). */
+  location?: string;
+  /** Null if the browser's permission was refused. Call from a click: browsers ask for permission. */
+  open(): Promise<Workspace | null>;
+  forget(): Promise<void>;
+}
+
+/** Start in `dir` next time, and put it first among the recent folders. */
+async function rememberDir(dir: string) {
+  const tj = tiny()!;
+  await tj.store.set('folder', dir);
+  await tj.store.set(RECENT_KEY, [dir, ...(await recentDirs()).filter((d) => d !== dir)].slice(0, MAX_RECENT));
+}
+
+async function recentDirs(): Promise<string[]> {
+  const list = await tiny()!.store.get(RECENT_KEY).catch(() => null);
+  return Array.isArray(list) ? list : [];
+}
+
+async function forgetDir(dir: string) {
+  await tiny()!.store.set(RECENT_KEY, (await recentDirs()).filter((d) => d !== dir));
+}
+
+async function recentHandles(db: IDBDatabase): Promise<DirHandle[]> {
+  return (await idbGet<DirHandle[]>(db, 'meta', RECENT_KEY).catch(() => undefined)) ?? [];
+}
+
+/** Handles in `list` other than `h`. */
+async function without(list: DirHandle[], h: DirHandle) {
+  const out: DirHandle[] = [];
+  for (const o of list) if (!(await o.isSameEntry(h).catch(() => false))) out.push(o);
+  return out;
+}
+
+/** Reopen `h` next time, and put it first among the recent folders. */
+async function rememberHandle(h: DirHandle) {
+  const db = await openDb();
+  if (!db) return;
+  await idbPut(db, 'meta', 'folder', h).catch(() => {});
+  await idbPut(db, 'meta', RECENT_KEY, [h, ...(await without(await recentHandles(db), h))].slice(0, MAX_RECENT)).catch(() => {});
+}
+
+async function forgetHandle(h: DirHandle) {
+  const db = await openDb();
+  if (db) await idbPut(db, 'meta', RECENT_KEY, await without(await recentHandles(db), h)).catch(() => {});
+}
+
+/** Recent folders other than the current workspace and `skip` (a folder already offered for reopening). */
+export async function recentFolders(current: Workspace, skip?: DirHandle | null): Promise<RecentFolder[]> {
+  if (tiny()) {
+    return (await recentDirs())
+      .filter((dir) => dir !== current.location)
+      .map((dir) => ({
+        name: new TinyWorkspace(dir).name,
+        location: dir,
+        open: async () => {
+          if (!(await tiny()!.api.call('isDir', { path: dir }).catch(() => false))) {
+            await forgetDir(dir);
+            throw new Error(t('ws.recentMissing', { path: dir }));
+          }
+          await rememberDir(dir);
+          return new TinyWorkspace(dir);
+        },
+        forget: () => forgetDir(dir),
+      }));
+  }
+  const db = BrowserFolderWorkspace.supported() && (await openDb());
+  if (!db) return [];
+  let list = await recentHandles(db);
+  if (current instanceof BrowserFolderWorkspace) list = await without(list, current.root);
+  if (skip) list = await without(list, skip);
+  return list.map((h) => ({ name: h.name, open: () => BrowserFolderWorkspace.reopen(h, true), forget: () => forgetHandle(h) }));
 }
 
 /** Pick a folder on disk to work in, or null if cancelled / not supported. */

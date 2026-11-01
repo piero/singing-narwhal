@@ -141,7 +141,16 @@ function wrap(fonts: FontRegistry, font: string, size: number, text: string, max
   return out;
 }
 
-export function layoutPage(t: PageDoc, ctx: PageLayoutContext): LaidPage {
+/** The area taken by one element on the laid-out page (its top margin excluded). */
+export interface ElementBounds {
+  kind: ElementKind;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export function layoutPage(t: PageDoc, ctx: PageLayoutContext): LaidPage & { bounds: ElementBounds[] } {
   const { fonts, width, height } = ctx;
   const m = t.margin ?? ctx.defaultMargin;
   const innerW = width - 2 * m;
@@ -186,6 +195,7 @@ export function layoutPage(t: PageDoc, ctx: PageLayoutContext): LaidPage {
   const share = fillers ? Math.max(0, height - 2 * m - fixedTotal) / fillers : 0;
 
   const items: DrawItem[] = [];
+  const bounds: ElementBounds[] = [];
   let y = m;
   const alignX = (w: number, align: Align | undefined, indent = 0) =>
     align === 'center' ? m + (innerW - w) / 2 : align === 'right' ? m + innerW - w : m + indent;
@@ -194,6 +204,7 @@ export function layoutPage(t: PageDoc, ctx: PageLayoutContext): LaidPage {
     const el = x.el;
     const margin = 'margin' in el ? (el.margin ?? 0) : 0;
     y += margin;
+    const top = y;
     switch (elementKind(el)) {
       case 'text': {
         const e = el as TextElement;
@@ -257,8 +268,9 @@ export function layoutPage(t: PageDoc, ctx: PageLayoutContext): LaidPage {
         break;
       }
     }
+    bounds.push({ kind: elementKind(el), x: m, y: top, width: innerW, height: y - top });
   }
-  return { width, height, items };
+  return { width, height, items, bounds };
 }
 
 /** Images referenced by a page, to load their sizes before layout. */

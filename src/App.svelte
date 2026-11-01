@@ -21,17 +21,17 @@
     copyWorkspace,
     EXAMPLE_BOOK,
     exampleFiles,
-    filesFromZip,
     isPage,
     isSong,
     isSongbook,
     pickFolder,
-    pickLocalFiles,
+    recentFolders,
     saveFile,
     tiny,
     readAbsoluteFiles,
     zipSongbook,
     zipWorkspace,
+    type RecentFolder,
     type Workspace,
   } from './ui/workspace';
 
@@ -213,6 +213,36 @@
     }
   }
 
+  // Other folders worked in before, to switch back to with one click.
+  let recent = $state<RecentFolder[]>([]);
+  async function loadRecent() {
+    const ws = workspace;
+    const r = await recentFolders(ws, rememberedFolder);
+    if (ws === workspace) recent = r;
+  }
+  $effect(() => {
+    void rememberedFolder;
+    if (ready) loadRecent();
+  });
+
+  async function openRecent(r: RecentFolder) {
+    try {
+      const w = await r.open();
+      if (w) {
+        rememberedFolder = null;
+        workspace = w;
+      }
+    } catch (e) {
+      error = (e as Error).message;
+      await loadRecent();
+    }
+  }
+
+  async function forgetRecent(r: RecentFolder) {
+    await r.forget();
+    await loadRecent();
+  }
+
   /** Copy everything into a folder on disk and continue working there. */
   async function saveAllToFolder() {
     try {
@@ -243,30 +273,6 @@
     } catch (e) {
       error = t('error.op', { msg: (e as Error).message });
     }
-  }
-
-  /** Add the files of a .zip (e.g. a backup made with "Download all") to the workspace. */
-  async function openZip() {
-    const [zip] = await pickLocalFiles(['zip']);
-    if (!zip) return;
-    let entries: [string, Uint8Array][];
-    try {
-      entries = filesFromZip(zip.bytes);
-    } catch (e) {
-      error = t('error.op', { msg: (e as Error).message });
-      return;
-    }
-    if (!entries.length) {
-      error = t('ws.zipEmpty', { name: zip.name });
-      return;
-    }
-    const replaced = entries.filter(([p]) => files.includes(p)).length;
-    if (!confirm(t('ws.zipConfirm', { n: entries.length, name: zip.name, where: where(workspace) }) + (replaced ? '\n\n' + t('ws.zipReplace', { n: replaced }) : ''))) return;
-    await withEditorsClosed(async () => {
-      for (const [p, b] of entries) await workspace.writeBytes(p, b);
-      notice = t('ws.zipDone', { n: entries.length, name: zip.name });
-      return { from: '', to: null };
-    });
   }
 
   /** Add the example songbook, with its songs and pages, and open it. */
@@ -505,13 +511,23 @@
           {/if}
           <button onclick={() => (importing = true)} disabled={!fonts}>{t('side.import')}</button>
         </div>
+        {#if recent.length}
+          <div class="recent">
+            <div class="note">{t('ws.recent')}</div>
+            <ul>
+              {#each recent as r (r)}
+                <li>
+                  <button class="link" title={r.location} onclick={() => openRecent(r)}>📁 {r.name}</button>
+                  <button class="link forget" title={t('ws.recentForget')} aria-label={t('ws.recentForget')} onclick={() => forgetRecent(r)}>×</button>
+                </li>
+              {/each}
+            </ul>
+          </div>
+        {/if}
         {#if canUseFolders}
           <button class="wide" class:primary={workspace.kind === 'browser'} onclick={saveAllToFolder}>{t('ws.saveToFolder')}</button>
         {/if}
-        <div class="ws-actions">
-          <button onclick={downloadZip} class:primary={needsBackup && !canUseFolders}>{t('ws.zip')}</button>
-          <button onclick={openZip}>{t('ws.openZip')}</button>
-        </div>
+        <button class="wide" onclick={downloadZip} class:primary={needsBackup && !canUseFolders}>{t('ws.zip')}</button>
         {#if workspace.kind === 'folder' && !tiny()}
           <button class="link" onclick={switchToBrowser}>🌐 {t('ws.useBrowser')}</button>
         {/if}
@@ -694,6 +710,25 @@
   }
   .ws button.link:hover {
     color: var(--fg);
+  }
+  .recent li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+  }
+  .recent li button.link:first-child {
+    flex: 1;
+    min-width: 0;
+    padding: 2px 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: left;
+  }
+  .recent .forget {
+    padding: 0 4px;
+    font-size: 14px;
   }
   .note {
     font-size: 12px;

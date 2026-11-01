@@ -82,6 +82,14 @@
       imageSizes: sizes,
     });
   });
+  // Element boundaries in the preview, in each element's colour; the one under the
+  // pointer (or being edited) in the list is highlighted.
+  let hovered: number | null = $state(null);
+  const outlines = $derived(
+    mode === 'elements' && laid
+      ? laid.bounds.map((b, i) => ({ ...b, color: `var(--k-${b.kind})`, highlight: i === hovered }))
+      : [],
+  );
   const sheets = $derived(laid ? [{ width: laid.width, height: laid.height, placements: [{ page: laid, x: 0, y: 0 }], foldLine: false }] : []);
 
   const KINDS: { kind: ElementKind; label: Key; make: () => PageElement }[] = [
@@ -170,7 +178,13 @@
         <ol class="elements">
           {#each tpl.elements as e, i (i)}
             {@const kind = elementKind(e)}
-            <li style:--k="var(--k-{kind})">
+            <li
+              style:--k="var(--k-{kind})"
+              onpointerenter={() => (hovered = i)}
+              onpointerleave={() => (hovered = null)}
+              onfocusin={() => (hovered = i)}
+              onfocusout={() => (hovered = null)}
+            >
               <header>
                 <strong>{kindLabel(kind)}</strong>
                 <span class="actions">
@@ -242,7 +256,7 @@
         <label>{t('page.previewTitle')} <input bind:value={previewTitle} /></label>
       </div>
       <div class="preview-scroll">
-        <Preview {sheets} imageUrl={(src) => images.get(src)} />
+        <Preview {sheets} {outlines} imageUrl={(src) => images.get(src)} />
       </div>
     </section>
   </div>
