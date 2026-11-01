@@ -44,7 +44,7 @@ function fromBase64(s: string) {
 
 const isDir = (path: string): Promise<boolean> => tjs.stat(path).then((s: any) => s.isDirectory, () => false);
 
-// Installed fonts: macOS, then Linux folders (missing ones are skipped).
+// Installed fonts: macOS, Linux and Windows folders (missing ones are skipped).
 const FONT_DIRS = [
   `${tjs.homeDir}/Library/Fonts`,
   '/Library/Fonts',
@@ -53,7 +53,9 @@ const FONT_DIRS = [
   `${tjs.homeDir}/.fonts`,
   '/usr/local/share/fonts',
   '/usr/share/fonts',
-];
+  tjs.env.LOCALAPPDATA && `${tjs.env.LOCALAPPDATA}/Microsoft/Windows/Fonts`, // fonts installed for one user
+  `${tjs.env.WINDIR ?? 'C:/Windows'}/Fonts`,
+].filter(Boolean);
 const FONT_FILE = /\.(ttf|otf|ttc|otc)$/i;
 
 async function fontFiles(): Promise<string[]> {
