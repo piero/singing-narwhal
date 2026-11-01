@@ -9,7 +9,7 @@
 // booklet for printing (n|1, 2|n-1, n-2|3, …).
 
 import { strFromU8, unzipSync } from 'fflate';
-import { fontVariant, type FontRegistry } from '../fonts';
+import { fontVariant, loadedFont, type FontRegistry } from '../fonts';
 import { PAGE_SIZES, type PageSizeName } from '../impose';
 import type { Align, BoxElement, ImageElement, PageDoc, PageElement, TextElement } from '../pages';
 import { readOdtXml, registryFamily, Styles, toPt, type TextProps } from './odt';
@@ -217,7 +217,7 @@ function pageFromShapes(
   const pics = shapes.filter((s) => s.kind === 'image');
   if (!rects.length && !texts.length && !pics.length) return null;
 
-  const fontId = (p: TextProps) => fontVariant(fonts, registryFamily(fonts, styles.fontFamily(p.font)), !!p.bold, !!p.italic);
+  const fontId = (p: TextProps) => loadedFont(fonts, fontVariant(fonts, registryFamily(fonts, styles.fontFamily(p.font)), !!p.bold, !!p.italic));
   const size = (p: TextProps) => Math.round((p.size ?? 18) * 10) / 10;
   // Page margin: the smallest side inset of the content, within reasonable bounds.
   const insets = shapes.flatMap((s) => [s.x, pageW - s.x - s.w]);

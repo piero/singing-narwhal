@@ -5,7 +5,7 @@
   import { serializePage, starterTemplate } from './core/pages';
   import { defaultSongbook, serializeSongbook } from './core/songbook';
   import { tick } from 'svelte';
-  import { loadFonts } from './ui/assets.svelte';
+  import { loadFonts, localFontsSupported, offerInstalledFonts } from './ui/assets.svelte';
   import { deleteFiles, renameFile, renameSong, songbookIndex } from './ui/fileops';
   import { onSaveError, settleSaves } from './ui/saves';
   import BookView from './ui/BookView.svelte';
@@ -97,12 +97,41 @@
       fontKey = key;
       try {
         const r = await loadFonts(workspace, files);
-        fonts = r.fonts;
+        useFonts(r.fonts);
         // Keep any other error on screen (e.g. storage not responding at startup).
         if (r.errors.length) error = r.errors.join('; ');
+        if (await offerInstalledFonts(r.fonts)) installedFonts = true;
+        if (fontsFrom === r.fonts) fonts = r.fonts.copy();
       } catch (e) {
         error = t('app.fontsError', { msg: (e as Error).message });
       }
+    }
+  }
+
+  /** The registry the editors use; installed fonts loading later refresh them. */
+  let fontsFrom: FontRegistry | null = null;
+  function useFonts(reg: FontRegistry) {
+    fontsFrom = reg;
+    fonts = reg;
+    reg.listen(
+      () => {
+        if (fontsFrom === reg) fonts = reg.copy();
+      },
+      (id, e) => (error = t('font.loadError', { name: id, msg: e.message })),
+    );
+  }
+
+  /** Installed fonts are offered (always in the desktop app; in Chrome and Edge, once allowed). */
+  let installedFonts = $state(false);
+  async function allowInstalledFonts() {
+    if (!fontsFrom) return;
+    try {
+      if (await offerInstalledFonts(fontsFrom, true)) {
+        installedFonts = true;
+        fonts = fontsFrom.copy();
+      }
+    } catch (e) {
+      error = t('font.denied', { msg: (e as Error).message });
     }
   }
 
@@ -565,6 +594,9 @@
       </div>
     {/if}
 
+    {#if localFontsSupported() && !installedFonts}
+      <button class="link installed-fonts" onclick={allowInstalledFonts}>{t('font.allow')}</button>
+    {/if}
     <label class="lang">
       {t('side.language')}
       <select value={i18n.lang} onchange={(e) => setLang(e.currentTarget.value as Lang)}>
@@ -853,6 +885,21 @@
     border-radius: 4px;
     background: var(--bg);
     color: var(--fg);
+  }
+  .installed-fonts {
+    margin-top: 16px;
+    align-self: flex-start;
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--muted);
+    font-size: 12px;
+    text-align: left;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+  .installed-fonts + .lang {
+    margin-top: 8px;
   }
   .lang {
     margin-top: 16px;

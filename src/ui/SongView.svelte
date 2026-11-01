@@ -1,11 +1,12 @@
 <script lang="ts">
-  import { onDestroy } from 'svelte';
+  import { onDestroy, tick } from 'svelte';
   import { debouncedSaver } from './saves';
   import { getMeta, parseSong, serializeSong, setMeta, type SongDoc } from '../core/chordpro';
-  import { fontFamilies, type FontRegistry } from '../core/fonts';
+  import type { FontRegistry } from '../core/fonts';
   import { impose, PAGE_SIZES, type PageSizeName } from '../core/impose';
   import { DEFAULT_STYLE, layoutSong, withFont, type Columns } from '../core/layout';
   import { convertNotation, songNotation, transposeSong } from '../core/transform';
+  import FontSelect from './FontSelect.svelte';
   import Preview from './Preview.svelte';
   import VisualEditor from './VisualEditor.svelte';
   import { saveFile, type Workspace } from './workspace';
@@ -106,7 +107,6 @@
 
   const notation = $derived(songNotation(doc));
   const columns = $derived((meta('columns') === '1' ? 1 : meta('columns') === '2' ? 2 : 'auto') as Columns);
-  const families = $derived(fontFamilies(fonts));
   const style = $derived(withFont(DEFAULT_STYLE, fonts, songSettings.font, songSettings.fontSize || DEFAULT_STYLE.lyrics.size));
   const laid = $derived.by(() => {
     if (!doc.lines.length) return null;
@@ -124,6 +124,9 @@
   async function exportPdf() {
     // pdf-lib is loaded on the first export, to keep it out of the initial download.
     const { renderPdf } = await import('../core/pdf');
+    // Installed fonts still loading would be replaced by Liberation Serif.
+    await fonts.idle();
+    await tick();
     const pdf = await renderPdf(sheets, fonts, { title: laid?.title, creator: __APP_NAME__ });
     const base = path.split('/').pop()!.replace(/\.\w+$/, '');
     await saveFile(`${base}.pdf`, pdf, 'application/pdf');
@@ -210,9 +213,13 @@
       </label>
       <label>
         {t('opt.font')}
-        <select bind:value={songSettings.font} onchange={saveSettings}>
-          {#each families as f (f)}<option value={f}>{f}</option>{/each}
-        </select>
+        <FontSelect
+          {fonts}
+          value={songSettings.font}
+          onchange={(f) => {
+            songSettings.font = f;
+            saveSettings();
+          }} />
       </label>
       <label>
         {t('opt.fontSize')}

@@ -47,8 +47,8 @@ tinyjs dev           # runs the app against the Vite dev server (npm run dev)
 tinyjs build --dmg   # builds the app and a .dmg into .build/
 ```
 
-Configuration is in `tinyjs.json`; the backend is `tiny/backend/main.js`. The backend runs
-in txiki.js, not Node: check its APIs against the txiki.js runtime that ships with TinyJS
+Configuration is in `tinyjs.json`; the backend is `tiny/backend/main.ts`, which TinyJS
+bundles with esbuild (it imports `src/core/sfnt.ts`). The backend runs in txiki.js, not Node: check its APIs against the txiki.js runtime that ships with TinyJS
 (`~/.tinyjs/bin/tjs run script.js`), not against Node's. For example, `tjs.readFile`
 always returns bytes.
 
@@ -70,7 +70,8 @@ src/
     songbook.ts            songbook format (.songbook.yaml) and assembly
     impose.ts              page sizes; placing pages on sheets (copies, 2-up, booklet)
     pdf.ts                 display list → PDF (pdf-lib)
-    fonts.ts               font registry, measurement (fontkit), bundled font list
+    fonts.ts               font registry, measurement (fontkit), bundled font list, installed fonts
+    sfnt.ts                font files: faces, names and licence flags; extracting a face from a .ttc
     images.ts              PNG/JPEG dimensions
     import/
       index.ts             entry points: importFile, importText; plain-text reader
@@ -91,12 +92,13 @@ src/
     idb.ts                 IndexedDB helpers
     fileops.ts             rename/delete that keep songbooks consistent
     saves.ts               debounced autosave, pending-save tracking, error reporting
-    assets.svelte.ts       fonts (bundled + workspace) and image URLs
+    assets.svelte.ts       fonts (bundled, workspace, installed) and image URLs
+    FontSelect.svelte      font family picker
     i18n.svelte.ts         English and Italian strings
     settings.svelte.ts     preferences remembered per browser
 cli/narwhal.ts              command line: PDF export and import
-tiny/backend/main.js       TinyJS backend: file access on disk
-public/fonts/              bundled Liberation fonts (also read by the CLI)
+tiny/backend/main.ts       TinyJS backend: file access on disk, installed fonts
+public/fonts/              bundled fonts and their licences (also read by the CLI)
 public/narwhal-logo-256.png logo for the web page (favicon, sidebar, welcome screen)
 assets/narwhal-logo.png     logo master; the desktop app's icon (tinyjs.json "icon")
 docs/                      technical overview and this guide
@@ -113,8 +115,10 @@ docs/                      technical overview and this guide
 - **In the browser:** there are no automated UI tests yet. Check UI changes by hand in
   Chrome and, for storage or dialog changes, in Safari and Firefox too. A clean start
   needs the site's data cleared (DevTools → Application → Storage → Clear site data).
-- **Desktop app:** backend changes can be tested by importing `tiny/backend/main.js`
-  from a script run with TinyJS's `tjs`. For the whole app, build it and open it.
+- **Desktop app:** to test backend changes, bundle it as TinyJS does
+  (`npx esbuild tiny/backend/main.ts --bundle --format=esm --platform=neutral --outfile=<dir>/main.js`)
+  and import that file from a script run with TinyJS's `tjs`. For the whole app, build it
+  and open it.
 
 Before opening a pull request, run:
 

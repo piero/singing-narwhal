@@ -1,8 +1,10 @@
 // Workspace assets in the browser: fonts (registered for measurement, PDF and
 // preview) and images (object URLs for the preview).
 
-import { BUNDLED_FONTS, FontRegistry, fontIdForFile, isFontFile } from '../core/fonts';
-import type { Workspace } from './workspace';
+import { BUNDLED_FONTS, FontRegistry, fontIdForFile, installedFontId, isFontFile, type OfferedFont } from '../core/fonts';
+import { bytesReader, extractFace, readFaces } from '../core/sfnt';
+import { t } from './i18n.svelte';
+import { fromBase64, tiny, type Workspace } from './workspace';
 
 const bundled = new Map<string, Uint8Array>();
 const registered = new Set<string>();
@@ -44,6 +46,95 @@ export async function loadFonts(workspace: Workspace, files: string[]): Promise<
     }
   }
   return { fonts, errors };
+}
+
+// --- Fonts installed on the computer ------------------------------------------
+// Listed once per session and offered to each registry; a font is read only when a
+// song or page first uses it (see FontRegistry.offer).
+
+interface LocalFontData {
+  family: string;
+  style: string;
+  postscriptName: string;
+  blob(): Promise<Blob>;
+}
+type QueryLocalFonts = () => Promise<LocalFontData[]>;
+const queryLocalFonts = () => (window as unknown as { queryLocalFonts?: QueryLocalFonts }).queryLocalFonts;
+
+/** The browser can list installed fonts (Chrome and Edge, with the user's permission). */
+export const localFontsSupported = () => !tiny() && typeof queryLocalFonts() === 'function';
+
+async function localFontsAllowed(): Promise<boolean> {
+  try {
+    return (await navigator.permissions.query({ name: 'local-fonts' as PermissionName })).state === 'granted';
+  } catch {
+    return false;
+  }
+}
+
+/** Installed fonts with the same id (e.g. in two folders): the first one wins. */
+function offered(list: { family: string; style: string; load: () => Promise<Uint8Array> }[]): OfferedFont[] {
+  const out = new Map<string, OfferedFont>();
+  for (const f of list) {
+    const n = installedFontId(f.family, f.style);
+    if (!n || out.has(n.id)) continue;
+    const id = n.id;
+    out.set(id, {
+      ...n,
+      load: async () => {
+        const data = await f.load();
+        registerWebFont(id, data);
+        return data;
+      },
+    });
+  }
+  return [...out.values()];
+}
+
+/** Desktop app: the backend lists the fonts that may be embedded, and reads one face on demand. */
+async function desktopFonts(): Promise<OfferedFont[]> {
+  const api = tiny()!.api;
+  const faces = (await api.call('systemFonts')) as { path: string; index: number; family: string; style: string }[];
+  return offered(faces.map((f) => ({ ...f, load: async () => fromBase64((await api.call('readFontFace', f)) as string) })));
+}
+
+/** Chrome and Edge: the licence and outline checks happen when a font is first read. */
+async function browserFonts(): Promise<OfferedFont[]> {
+  const list = (await queryLocalFonts()!()).filter((f) => !f.family.startsWith('.'));
+  return offered(
+    list.map((f) => ({
+      family: f.family,
+      style: f.style,
+      load: async () => {
+        const bytes = new Uint8Array(await (await f.blob()).arrayBuffer());
+        // The data can be a whole collection: find the face by its PostScript name.
+        const faces = await readFaces(bytesReader(bytes));
+        const face = faces.find((x) => x.postscriptName === f.postscriptName) ?? faces[0];
+        if (!face) throw new Error(t('font.unreadable'));
+        if (!face.embeddable) throw new Error(t('font.notEmbeddable'));
+        if (!face.usable) throw new Error(t('font.unsupported'));
+        return extractFace(bytes, face.index);
+      },
+    })),
+  );
+}
+
+let installed: Promise<OfferedFont[]> | null = null;
+
+/**
+ * Offer the installed fonts to `fonts`: always in the desktop app; in Chrome and
+ * Edge once the user has allowed it (`ask` shows the browser's permission prompt,
+ * and must come from a click). Returns whether any were offered.
+ */
+export async function offerInstalledFonts(fonts: FontRegistry, ask = false): Promise<boolean> {
+  if (!installed) {
+    if (tiny()) installed = desktopFonts();
+    else if (localFontsSupported() && (ask || (await localFontsAllowed()))) installed = browserFonts();
+    else return false;
+    installed.catch(() => (installed = null));
+  }
+  fonts.offer(await installed);
+  return true;
 }
 
 /** Object URLs of workspace images, for the SVG preview. */

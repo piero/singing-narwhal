@@ -6,7 +6,7 @@
 
 import { getMeta, type SongDoc, type ChordAnchor } from './chordpro';
 import { renderChord, spellingForKey, type Notation, type Spelling } from './chords';
-import { fontVariant, type FontRegistry } from './fonts';
+import { fontVariant, loadedFont, type FontRegistry } from './fonts';
 
 export interface TextStyle {
   font: string;
@@ -71,6 +71,13 @@ export function withFont(style: SongStyle, fonts: FontRegistry, family: string, 
     const s = style[key];
     out[key] = { font: fontVariant(fonts, family, /Bold/.test(s.font), /Italic|Oblique/.test(s.font)), size: s.size * k };
   }
+  return out;
+}
+
+/** `style` with fonts that aren't loaded yet replaced by Liberation Serif (see `loadedFont`). */
+export function loadedStyle(style: SongStyle, fonts: FontRegistry): SongStyle {
+  const out = { ...style };
+  for (const key of TEXT_STYLES) out[key] = { ...style[key], font: loadedFont(fonts, style[key].font) };
   return out;
 }
 
@@ -551,7 +558,8 @@ function flow(ctx: Ctx, s: SongStructure, columns: 1 | 2): { pages: LaidPage[]; 
   return { pages, wrapped };
 }
 
-export function layoutSong(doc: SongDoc, fonts: FontRegistry, style: SongStyle, opts: LayoutOptions): SongLayout {
+export function layoutSong(doc: SongDoc, fonts: FontRegistry, songStyle: SongStyle, opts: LayoutOptions): SongLayout {
+  const style = loadedStyle(songStyle, fonts);
   const s = structure(doc);
   const spelling = spellingForKey(s.key, opts.transpose);
   const colChoices: (1 | 2)[] = opts.columns !== 'auto' ? [opts.columns] : s.columns ? [s.columns] : [1, 2];

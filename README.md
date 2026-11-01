@@ -102,7 +102,25 @@ error bar says so.
 ### Print a song
 
 In the preview on the right, choose the page size, how to print (1 per sheet, 2 copies per
-sheet, 2 pages per sheet) and the columns, then **Export PDF**.
+sheet, 2 pages per sheet), the columns and the font, then **Export PDF**.
+
+### Fonts
+
+The font lists in songs and pages offer:
+
+- the fonts that come with the app: Liberation Serif, Sans and Mono, Crimson Text,
+  Courier Prime and Atkinson Hyperlegible;
+- fonts you imported (`.ttf`, `.otf`, kept in `fonts/` in the workspace);
+- the fonts **installed on your computer**, under *Installed on this computer*: always in
+  the desktop app; in Chrome and Edge after clicking **Use fonts installed on this
+  computer** in the sidebar and allowing it. Safari and Firefox don't give websites
+  access to installed fonts.
+
+Installed fonts whose licence forbids embedding them in documents are not listed (in
+Chrome and Edge, they are refused when first used), nor are variable and colour fonts.
+A song or page that uses an installed font shows *(not available)* next to its name on a
+computer that lacks it, and is printed in Liberation Serif there. To take a font along,
+import its file into the workspace.
 
 ### Make a songbook
 

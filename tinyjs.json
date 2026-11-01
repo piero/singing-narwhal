@@ -5,7 +5,7 @@
   "version": "0.1.0",
   "icon": "assets/narwhal-logo.png",
   "size": "1280x800",
-  "backend": "tiny/backend/main.js",
+  "backend": "tiny/backend/main.ts",
   "frontend": {
     "build": "npm run build",
     "dist": "dist",

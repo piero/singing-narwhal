@@ -35,7 +35,7 @@ flowchart TB
     TW["TinyWorkspace<br/>RPC to backend"]
   end
 
-  Backend["tiny/backend/main.js<br/>txiki.js: files on disk"]
+  Backend["tiny/backend/main.ts<br/>txiki.js: files on disk, installed fonts"]
   Disk[("folder on disk")]
   IDB[("browser storage")]
 
@@ -113,6 +113,42 @@ still find what they list, and replace files with the same path (marked in the l
 are skipped. After each addition the dialog lists what the songbooks and pages to import
 use but neither they nor the workspace have. Nothing is written until **Done**.
 
+### Installed fonts
+
+Besides the bundled fonts and the workspace's `fonts/`, the app can use the fonts installed
+on the computer: always in the desktop app, and in Chrome and Edge through the Local Font
+Access API (`queryLocalFonts`, after the user clicks **Use fonts installed on this
+computer** and allows it; later visits reuse the permission). Safari and Firefox don't
+implement that API.
+
+- **Listing.** The desktop backend walks `~/Library/Fonts`, `/Library/Fonts` and
+  `/System/Library/Fonts` (and the usual Linux folders) and reads only each file's table
+  directory, `name` table and OS/2 flags (`sfnt.ts`, with positioned reads): about 900
+  faces in 0.2–1.5 s on a Mac, once per session. In the browser, `queryLocalFonts`
+  returns the names directly.
+- **Which fonts.** Faces whose licence flags (OS/2 `fsType`) forbid embedding are left out,
+  as are variable fonts (pdf-lib's subsets of them lose glyphs), colour bitmap fonts and
+  hidden system fonts (names starting with `.`). The browser can't check this before
+  reading a font, so it checks when the font is first used and reports the error.
+- **Ids.** An installed face gets an id in the registry's style from its family and style
+  names (name IDs 1 and 2): Georgia Bold Italic → `Georgia-BoldItalic`; styles other than
+  regular, bold and italic become part of the family (Avenir Next Medium Italic →
+  `AvenirNextMedium-Italic`). Bundled and workspace fonts win over installed fonts with the
+  same id.
+- **Loading on demand.** `FontRegistry.offer` adds the list without reading any font.
+  Layout asks for fonts through `loadedFont` / `resolve`, which start loading an installed
+  font and use Liberation Serif in the same style until it is ready; the registry then
+  calls back, and the app replaces its `fonts` with `fonts.copy()` (same fonts, new
+  object) so the editors lay out again. PDF export first waits for loading fonts
+  (`fonts.idle()`).
+- **Collections.** A `.ttc` holds several faces that pdf-lib can't embed as a whole, so
+  `extractFace` copies one face's tables into a standalone font, in the backend for the
+  desktop app and in the page for Chrome (where the font data may be a whole collection;
+  the face is found by its PostScript name).
+
+A songbook or page keeps the id of the installed font it uses. Where that font is missing,
+the picker shows it as *(not available)* and the text is laid out in Liberation Serif.
+
 ## Technologies
 
 | Area | Choice | Why |
@@ -128,6 +164,7 @@ use but neither they nor the workspace have. Nothing is written until **Done**.
 | CLI | Node + tsx | runs the TypeScript sources directly |
 | Tests | Vitest | unit tests of `src/core` |
 | Fonts | Liberation Serif, Sans, Mono (SIL OFL) | LibreOffice's defaults, metric-compatible with Times New Roman, Arial and Courier, so imported documents measure exactly |
+| More fonts | Crimson Text, Courier Prime, Atkinson Hyperlegible (SIL OFL) | a book serif, a typewriter face for chords, a very legible sans; small static files (about 1.4 MB together) |
 
 ## File formats
 
@@ -224,7 +261,7 @@ bottom. A height of `fill` shares the space left on the page.
 ```yaml
 elements:
   - text: "{{title}}"            # placeholders: {{title}}, {{year}}, {{date}}
-    font: LiberationSans-Bold    # any bundled font or a font from fonts/
+    font: LiberationSans-Bold    # a bundled font, a font from fonts/ or an installed font
     size: 34
     align: center
   - image: images/logo.png
@@ -255,7 +292,7 @@ to the workspace root with `/` separators.
 
 | Implementation | Used by | Where files are | Notes |
 |---|---|---|---|
-| `TinyWorkspace` | desktop app | a folder on disk | each call goes to `tiny/backend/main.js` over TinyJS's RPC (`tiny.api.call`); paths containing `..` are refused |
+| `TinyWorkspace` | desktop app | a folder on disk | each call goes to `tiny/backend/main.ts` over TinyJS's RPC (`tiny.api.call`); paths containing `..` are refused |
 | `BrowserFolderWorkspace` | website in Chrome/Edge | a folder on disk | File System Access API (`showDirectoryPicker`); needs HTTPS or localhost |
 | `BrowserWorkspace` | website, by default | IndexedDB | empty on first use |
 | `NoWorkspace` | startup | nowhere | placeholder until the real workspace is open; refuses writes |
@@ -346,12 +383,14 @@ space. There is no server code and nothing is uploaded: files stay on the user's
 
 `tinyjs.json` configures the app (its name in `"title"`, which the web build and the CLI
 also read; id `org.narwhal.app`; icon `assets/narwhal-logo.png`), the frontend (`npm run build`,
-served from `dist/`) and the backend (`tiny/backend/main.js`, run by txiki.js).
+served from `dist/`) and the backend (`tiny/backend/main.ts`, bundled by TinyJS with
+esbuild and run by txiki.js).
 
 - The launcher loads the page from `file://` in the system WebKit. Local reads with
   `fetch` succeed with status 0 there, which the font loader accepts.
 - The backend exposes file operations on the workspace folder (list, read, write, rename,
-  remove), plus reading and writing files the user picked in native dialogs.
+  remove), plus reading and writing files the user picked in native dialogs, and the
+  installed fonts (see [Installed fonts](#installed-fonts)).
 - `tinyjs.json` registers `.cho`, `.chordpro`, `.odt` and `.odg` with macOS. Files opened
   from Finder or dropped on the Dock icon arrive through `tiny.app.onOpenFiles` (also at
   launch) and open the import dialog once the workspace and fonts are ready.
@@ -377,10 +416,13 @@ ChordPro, using the same `src/core` code with fonts read from `public/fonts/`. S
 | Installation | none | `.dmg`; unsigned builds trigger a macOS warning |
 | Platforms | any modern browser | macOS (built per CPU type unless configured) |
 | Offline | no | yes |
+| Installed fonts | Chrome and Edge, after the user allows it | always |
 
 ## Licences
 
 The app is GPL-3.0-or-later. Dependencies (pdf-lib, @pdf-lib/fontkit, fflate, yaml,
 Svelte) are under MIT, ISC or similar permissive licences, compatible with the GPL. The
-bundled Liberation fonts are under the SIL Open Font License 1.1
-(`public/fonts/LICENSE-Liberation.txt`).
+bundled fonts (Liberation, Crimson Text, Courier Prime, Atkinson Hyperlegible) are under the
+SIL Open Font License 1.1 (`public/fonts/LICENSE-*.txt`). Installed fonts are read from the
+user's computer, never distributed with the app; those that forbid embedding are not
+offered.

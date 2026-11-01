@@ -2,7 +2,7 @@
 // character, computed from the document's fonts, sizes, indents and tab stops.
 
 import { unzipSync, strFromU8 } from 'fflate';
-import { fontVariant, type FontRegistry } from '../fonts';
+import { fontVariant, loadedFont, type FontRegistry } from '../fonts';
 import type { SheetChar, SheetLine } from './sheet';
 import { child, elements, parseXml, type XmlElement } from './xml';
 
@@ -173,7 +173,7 @@ export function readOdtXml(contentXml: string, stylesXml: string | undefined, fo
     for (const run of runs) {
       const p = run.props;
       const family = registryFamily(fonts, styles.fontFamily(p.font));
-      const id = fontVariant(fonts, family, !!p.bold, !!p.italic);
+      const id = loadedFont(fonts, fontVariant(fonts, family, !!p.bold, !!p.italic));
       const sz = p.size ?? 12;
       if (run.text.trim()) {
         bold &&= !!p.bold;

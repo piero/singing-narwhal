@@ -17,7 +17,7 @@ import { parseSong } from './chordpro';
 import type { Notation } from './chords';
 import { fontIdForFile, isFontFile, type FontRegistry } from './fonts';
 import { PAGE_SIZES, impose, type ImpositionKind, type PageSizeName, type Sheet } from './impose';
-import { DEFAULT_STYLE, layoutSong, type Columns, type LaidPage, type SongStyle, type TextItem } from './layout';
+import { DEFAULT_STYLE, layoutSong, loadedStyle, type Columns, type LaidPage, type SongStyle, type TextItem } from './layout';
 import { imageSize } from './images';
 import { layoutPage, parsePage, pageImages } from './pages';
 
@@ -186,7 +186,8 @@ async function imagePage(book: Songbook, loader: FileLoader, src: string): Promi
   return { width, height, items: [{ type: 'image', x: (width - w) / 2, y: (height - h) / 2, width: w, height: h, src }] };
 }
 
-export async function buildSongbook(book: Songbook, fonts: FontRegistry, loader: FileLoader): Promise<BuiltBook> {
+export async function buildSongbook(songbook: Songbook, fonts: FontRegistry, loader: FileLoader): Promise<BuiltBook> {
+  const book = { ...songbook, style: loadedStyle(songbook.style, fonts) };
   const { width, height } = PAGE_SIZES[book.page];
   const warnings: string[] = [];
   // First pass: everything but the table of contents, which needs page numbers.

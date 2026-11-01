@@ -3,7 +3,7 @@
   // settings, a YAML source view and a live preview.
   import { onDestroy } from 'svelte';
   import { debouncedSaver } from './saves';
-  import { fontFamilies, fontFamily, fontVariant, type FontRegistry } from '../core/fonts';
+  import { fontFamily, fontVariant, type FontRegistry } from '../core/fonts';
   import { imageSize } from '../core/images';
   import { PAGE_SIZES, type PageSizeName } from '../core/impose';
   import { DEFAULT_STYLE } from '../core/layout';
@@ -19,6 +19,7 @@
   } from '../core/pages';
   import { ImageUrls } from './assets.svelte';
   import { t, type Key } from './i18n.svelte';
+  import FontSelect from './FontSelect.svelte';
   import Preview from './Preview.svelte';
   import { importImage, isImage, type Workspace } from './workspace';
 
@@ -110,7 +111,6 @@
   }
 
   // Font picker: family + bold/italic, stored as a font id.
-  const families = $derived(fontFamilies(fonts));
   type Styled = { font?: string };
   const isBold = (e: Styled) => /Bold/.test(e.font ?? '');
   const isItalic = (e: Styled) => /Italic|Oblique/.test(e.font ?? '');
@@ -140,9 +140,7 @@
 {#snippet fontPicker(e: Styled)}
   <label>
     {t('page.font')}
-    <select value={fontFamily(e.font ?? DEFAULT_STYLE.lyrics.font)} onchange={(ev) => setFont(e, ev.currentTarget.value, isBold(e), isItalic(e))}>
-      {#each families as f (f)}<option value={f}>{f}</option>{/each}
-    </select>
+    <FontSelect {fonts} value={fontFamily(e.font ?? DEFAULT_STYLE.lyrics.font)} onchange={(f) => setFont(e, f, isBold(e), isItalic(e))} />
   </label>
   <button class="toggle b" class:on={isBold(e)} onclick={() => setFont(e, fontFamily(e.font ?? DEFAULT_STYLE.lyrics.font), !isBold(e), isItalic(e))}>B</button>
   <button class="toggle i" class:on={isItalic(e)} onclick={() => setFont(e, fontFamily(e.font ?? DEFAULT_STYLE.lyrics.font), isBold(e), !isItalic(e))}>I</button>
@@ -349,6 +347,7 @@
   }
   input,
   select,
+  .fields :global(select),
   textarea,
   .pick {
     font: inherit;

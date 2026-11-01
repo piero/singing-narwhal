@@ -154,7 +154,7 @@ export function layoutPage(t: PageDoc, ctx: PageLayoutContext): LaidPage & { bou
   const { fonts, width, height } = ctx;
   const m = t.margin ?? ctx.defaultMargin;
   const innerW = width - 2 * m;
-  const fontOf = (f?: string) => (f && fonts.has(f) ? f : ctx.defaultFont);
+  const fontOf = (f?: string) => (f ? fonts.resolve(f, ctx.defaultFont) : ctx.defaultFont);
 
   // First pass: fixed heights, and how many elements share the free space.
   type Measured = { el: PageElement; fixed: number; fills: boolean; lines?: string[] };

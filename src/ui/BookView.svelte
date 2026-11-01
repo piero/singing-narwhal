@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onDestroy } from 'svelte';
+  import { onDestroy, tick } from 'svelte';
   import { debouncedSaver, settleSaves } from './saves';
   import { getMeta, parseSong } from '../core/chordpro';
   import type { FontRegistry } from '../core/fonts';
@@ -34,6 +34,8 @@
   let loadedPath = '';
   let savedText = '';
   let built = $state<BuiltBook | null>(null);
+  /** The fonts `built` was laid out with. */
+  let builtWith: FontRegistry | null = null;
   let view: 'sheets' | 'pages' = $state('sheets');
   let titles: Record<string, string> = $state({});
   let status = $state('');
@@ -81,8 +83,12 @@
     const text = serializeSongbook(book);
     const snapshot = $state.snapshot(book) as Songbook;
     void files; // rebuild when songs are edited
+    const f = fonts; // and when installed fonts finish loading
     clearTimeout(timer);
-    timer = setTimeout(async () => (built = await buildSongbook(snapshot, fonts, loader)), 300);
+    timer = setTimeout(async () => {
+      built = await buildSongbook(snapshot, f, loader);
+      builtWith = f;
+    }, 300);
     if (loadedPath === path && text !== savedText) {
       const target = loadedPath;
       saver.schedule(async () => {
@@ -155,6 +161,16 @@
     if (!built || !book) return;
     // pdf-lib is loaded on the first export, to keep it out of the initial download.
     const { renderPdf } = await import('../core/pdf');
+    // Wait for installed fonts that are still loading, which the last build replaced
+    // with Liberation Serif, and rebuild with them.
+    for (let i = 0; i < 3; i++) {
+      await fonts.idle();
+      await tick();
+      if (builtWith === fonts) break;
+      clearTimeout(timer);
+      built = await buildSongbook($state.snapshot(book) as Songbook, fonts, loader);
+      builtWith = fonts;
+    }
     const pdf = await renderPdf(built.sheets, fonts, { title: book.title, creator: __APP_NAME__, loadImage: loader.readBytes });
     await saveFile(`${path.split('/').pop()!.replace(/\.songbook\.ya?ml$/i, '')}.pdf`, pdf, 'application/pdf');
   }
