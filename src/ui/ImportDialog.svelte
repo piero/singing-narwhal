@@ -13,7 +13,7 @@
   import { pageImages, parsePage, serializePage } from '../core/pages';
   import { defaultSongbook, parseSongbook, resolveBookPath, serializeSongbook, songbookFiles, type ContentItem } from '../core/songbook';
   import { t } from './i18n.svelte';
-  import { filesFromFolder, filesFromZip, isHidden, isImage, isPage, isSong, isSongbook, readExternalFiles, tiny, type Workspace } from './workspace';
+  import { filesFromFolder, filesFromZip, isChordLibrary, isHidden, isImage, isPage, isSong, isSongbook, readExternalFiles, tiny, type Workspace } from './workspace';
 
   let { workspace, fonts, files, onclose }: { workspace: Workspace; fonts: FontRegistry; files: string[]; onclose: (opened?: string) => void } = $props();
 
@@ -60,6 +60,11 @@
     if (isFontFile(base)) return { source: base, path: unique(`fonts/${stem}`, ext), bytes };
     if (isSongbook(base)) return { source: base, path: unique(base.replace(/\.songbook\.ya?ml$/i, ''), '.songbook.yaml'), text: decode(bytes) };
     if (isPage(base)) return { source: base, path: unique(`pages/${base.replace(/\.page\.ya?ml$/i, '')}`, '.page.yaml'), text: decode(bytes) };
+    // A chord library replaces the workspace's.
+    if (isChordLibrary(base)) {
+      taken.add(base);
+      return { source: base, path: base, text: decode(bytes), replaces: files.includes(base) };
+    }
     if (!IMPORTABLE.test(base)) throw new Error('unsupported file type');
     const song = importFile(base, bytes, fonts);
     return { source: base, path: unique(`songs/${slugify(song.title)}`, '.cho'), text: song.chordpro };
@@ -139,7 +144,7 @@
     let skipped = 0;
     for (const [path, bytes] of entries) {
       if (isHidden(path)) continue;
-      if (isSong(path) || isSongbook(path) || isPage(path) || isImage(path) || isFontFile(path)) {
+      if (isSong(path) || isSongbook(path) || isPage(path) || isChordLibrary(path) || isImage(path) || isFontFile(path)) {
         const text = isImage(path) || isFontFile(path) ? undefined : decode(bytes);
         const i = items.findIndex((it) => it.path === path);
         if (i >= 0) items.splice(i, 1);

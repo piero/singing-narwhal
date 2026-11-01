@@ -173,6 +173,7 @@ A workspace is a plain folder:
 ```
 canzoniere/
   campo-2026.songbook.yaml
+  chords.cho              # optional: the chord library (diagrams)
   pages/
     copertina.page.yaml
   songs/
@@ -220,12 +221,14 @@ Intro: [D] [G] (2x)
 | `{comment: …}` | italic note |
 | `{column_break}`, `{new_page}` | force a break |
 | `{columns: 2}` | number of columns for this song (songbooks may override it) |
+| `{define: Am base-fret 1 frets x 0 2 2 1 0 fingers 0 0 2 3 1 0}` | chord diagram printed after the lyrics (see below) |
 | `# …` | comment line, not printed |
 
 Unrecognised chords (`N.C.`, `|`, `x2`) are printed as written and never transposed.
 Converting the notation or transposing rewrites the chords in the file. Minor chords keep
 the sign they were written with (`Lam` → `Sim`, `La-` → `Si-`); converting to Do Re Mi
-writes `Am` as `Lam`, and converting to C D E writes `Lam` and `La-` as `Am`.
+writes `Am` as `La-`, the usual sign in Italian songbooks, and converting to C D E writes
+`Lam` and `La-` as `Am`.
 Transposition spells accidentals for the new key (D+1 → E♭, not D♯), using `{key}`. A song
 without `{key}` gets one guessed from its chords (`guessKey` in `chords.ts`): each of the 24
 keys scores the song's chords, fully for chords of the key (with both fifths in minor),
@@ -233,6 +236,44 @@ partly for other roots on its scale, negatively for the rest, and its tonic chor
 extra, most of all as the first and the last chord, which tells a major key from its
 relative minor. The guess is shown in the editor's Key field but written to the file only
 if the user types it.
+
+### Chord diagrams (`{define}`, `chords.cho`)
+
+Diagrams use ChordPro's own `{define}` directive (`diagrams.ts`):
+
+```
+{define: Bm base-fret 1 frets x 2 4 4 3 2 fingers 0 1 3 4 2 1}
+{define: Cm base-fret 3 frets x 1 3 3 2 1 fingers 0 1 3 4 2 1}
+```
+
+- **`frets`**: one value per string, lowest first. Values count from `base-fret` (1 is
+  its fret); `0` is open and `x` (or `N`, `-1`) muted. Any number of strings works, e.g.
+  four for a ukulele.
+- **`fingers`** (optional): one per string, `0` for none. The same finger on several
+  strings at one fret is drawn as a barre.
+- **Not drawn:** a `{define}` without `frets`, or with `diagram off`. Its other keywords
+  (`keys`, `copy`, `display`, `format`) are kept in the file but not used.
+
+**In a song.** A song prints the diagrams it defines, in their order, after the lyrics:
+in rows as wide as a column, in the space left in the last column, or in the next column
+or page. They take part in auto-fit, so they count when choosing columns and text size.
+They are hidden when chords are (`show_chords: false`).
+- **Names:** a diagram matches a chord whatever its notation or spelling (`Am` = `Lam` =
+  `La-`, `Bb` = `A#`: `chordKey`). It is labelled as the song writes that chord, in the
+  notation the song or songbook prints.
+- **Converting the notation** renames the `{define}` lines.
+- **Transposing** replaces each one with the library's diagram of the new chord, since a
+  fingering can't be shifted. Without one in the library it is left unchanged, and the
+  editor marks it as not used by the song.
+
+**The library.** `chords.cho` at the top of the workspace is a ChordPro file of `{define}`
+lines, with a comment header.
+- **Reading and writing:** the Chord library view reads it with the song parser and
+  rewrites the whole file on every change. Other lines in it are not kept.
+- **Starter chords:** `COMMON_GUITAR_CHORDS` holds about 40 guitar chords to start from.
+- **Adding to a song:** picking a diagram in a song copies its definition into the song,
+  after the metadata, named in the song's notation. Songs therefore don't depend on the
+  library: they print the same in songbooks, zips, the CLI and other ChordPro tools.
 
 ### Songbooks (`.songbook.yaml`)
 

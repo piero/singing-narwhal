@@ -63,6 +63,13 @@ export async function renderPdf(sheets: Sheet[], fonts: FontRegistry, opts: PdfO
             borderWidth: it.lineWidth,
             borderColor: rgb(0, 0, 0),
           });
+        } else if (it.type === 'dot') {
+          page.drawCircle({
+            x: pl.x + it.x,
+            y: H - (pl.y + it.y),
+            size: it.r,
+            ...(it.fill ? { color: rgb(0, 0, 0) } : { borderColor: rgb(0, 0, 0), borderWidth: it.lineWidth }),
+          });
         } else if (it.type === 'image') {
           page.drawImage(await image(it.src), {
             x: pl.x + it.x,

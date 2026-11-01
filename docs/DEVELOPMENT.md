@@ -110,6 +110,7 @@ src/
     chords.ts              chord parsing (English/Italian), transposition, spelling, formatting
     chordpro.ts            ChordPro reader/writer, one entry per source line (lossless)
     transform.ts           song-wide edits: transpose, convert notation
+    diagrams.ts            chord diagrams: {define} reader/writer, chord library, drawing
     sections.ts            edits on selected lines: sections, breaks, copy/cut/paste
     layout.ts              song layout: line breaking, chord spacing, columns, auto-fit
     pages.ts               non-song pages (.page.yaml): format, layout, starter templates
@@ -126,11 +127,14 @@ src/
       xml.ts               minimal XML parser for .odt content
       sheet.ts             chords-over-lyrics → ChordPro converter
     core.test.ts           tests: chords, ChordPro, layout, imposition, transforms, pages
+    diagrams.test.ts       tests: chord definitions, diagrams in songs and layouts
     import.test.ts         tests: text, .odt and .odg import
   ui/                      Svelte UI and browser-side services
     SongView.svelte        song editor screen: metadata, chord tools, preview, export
     VisualEditor.svelte    chords-over-lyrics editor (wrapping lines), section toolbar, line selection
     BookView.svelte        songbook editor
+    ChordLibraryView.svelte chord library (chords.cho) editor
+    ChordDiagram.svelte    a chord diagram, editable by clicking its frets
     PageView.svelte        page (.page.yaml) editor
     ImportDialog.svelte    import of files and pasted text
     Preview.svelte         SVG rendering of sheets
@@ -244,6 +248,9 @@ like the rest of the project.
 - [x] Live preview drawn from the same layout as the PDF; click the preview to jump to a
       line.
 - [x] PDF export with embedded fonts; A4, A5, A6, Letter, Half Letter.
+- [x] Chord diagrams after the lyrics, in ChordPro `{define}` lines picked from a chord
+      library (`chords.cho`) that starts with common guitar chords; edited by clicking
+      the diagram; renamed with the notation and swapped when transposing.
 - [x] Printing: 1 page per sheet, 2 copies per sheet, 2 pages per sheet, saddle-stitch
       booklets.
 
@@ -285,7 +292,7 @@ like the rest of the project.
       builds; updates; Windows/Linux.
 - [ ] Automated UI tests (e.g. Playwright) in Chromium, WebKit and Firefox.
 - [ ] Offline support for the website (service worker).
-- [ ] Chord diagrams (guitar) in free space at the end of a song or the book.
+- [ ] Chord diagrams for a whole songbook (a page of the chords it uses).
 - [ ] Images inside songs (`{image: …}`), placed in free space at the end of a column.
 - [ ] Style editor for songs (fonts and sizes of lyrics, chords, titles).
 - [ ] Booklet options: cover from a PDF, sections with their own index.

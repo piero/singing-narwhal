@@ -6,6 +6,7 @@
 
 import { getMeta, type SongDoc, type ChordAnchor } from './chordpro';
 import { renderChord, spellingForKey, type Notation, type Spelling } from './chords';
+import { chordKey, diagramItems, songShapes, type ChordShape } from './diagrams';
 import { fontVariant, loadedFont, type FontRegistry } from './fonts';
 import { songKey } from './transform';
 
@@ -138,7 +139,22 @@ export interface RectItem {
   lineWidth: number;
 }
 
-export type DrawItem = TextItem | RuleItem | ImageItem | RectItem;
+/** Circle centred on (x, y): a finger dot when filled, an open string when not. */
+export interface DotItem {
+  type: 'dot';
+  x: number;
+  y: number;
+  r: number;
+  fill: boolean;
+  lineWidth: number;
+}
+
+export type DrawItem = TextItem | RuleItem | ImageItem | RectItem | DotItem;
+
+/** An item moved by (dx, dy). */
+export function shiftItem(it: DrawItem, dx: number, dy: number): DrawItem {
+  return it.type === 'rule' ? { ...it, x1: it.x1 + dx, y1: it.y1 + dy, x2: it.x2 + dx, y2: it.y2 + dy } : { ...it, x: it.x + dx, y: it.y + dy };
+}
 
 export interface LaidPage {
   width: number;
@@ -185,6 +201,8 @@ interface SongStructure {
   key?: string;
   columns?: 1 | 2;
   blocks: Block[];
+  /** Chord diagrams shown after the lyrics, each named as the song writes the chord. */
+  diagrams: { shape: ChordShape; label: string }[];
 }
 
 function isEnvStart(name: string): BlockKind | null {
@@ -199,7 +217,12 @@ export function structure(doc: SongDoc): SongStructure {
     subtitle: [getMeta(doc, 'subtitle'), getMeta(doc, 'artist')].filter(Boolean).join(' – '),
     key: songKey(doc).key ?? undefined,
     blocks: [],
+    diagrams: [],
   };
+  // A diagram is named as the song writes its chord (La- rather than its {define}'s Lam).
+  const written = new Map<string, string>();
+  for (const l of doc.lines) if (l.kind === 'lyrics') for (const c of l.chords) if (!written.has(chordKey(c.chord))) written.set(chordKey(c.chord), c.chord);
+  s.diagrams = songShapes(doc).map((shape) => ({ shape, label: written.get(chordKey(shape.name)) ?? shape.name }));
   const cols = Number(getMeta(doc, 'columns'));
   if (cols === 1 || cols === 2) s.columns = cols;
 
@@ -554,6 +577,35 @@ function flow(ctx: Ctx, s: SongStructure, columns: 1 | 2): { pages: LaidPage[]; 
     for (const row of mb.rows) {
       if (y + row.height > bottom && y > top) nextColumn();
       place(row);
+    }
+  }
+  // Chord diagrams after the lyrics, in rows as wide as a column.
+  if (opts.showChords && s.diagrams.length) {
+    const cells = s.diagrams.map((d) =>
+      diagramItems(d.shape, chordText(ctx, d.label), ctx.scale, ctx.fonts, { name: style.chords.font, size: sz(ctx, style.chords), small: style.lyrics.font }),
+    );
+    const cellGap = 6 * ctx.scale;
+    const rows: (typeof cells)[] = [];
+    let w = Infinity;
+    for (const c of cells) {
+      if (w + cellGap + c.width > colW) {
+        rows.push([]);
+        w = -cellGap;
+      }
+      rows[rows.length - 1].push(c);
+      w += cellGap + c.width;
+    }
+    for (const [i, row] of rows.entries()) {
+      const h = Math.max(...row.map((c) => c.height));
+      const gap = y === top ? 0 : i === 0 ? blockGap * 1.5 : blockGap / 2;
+      if (y + gap + h > bottom && y > top) nextColumn();
+      else y += gap;
+      let x = colX();
+      for (const c of row) {
+        page!.items.push(...c.items.map((it) => shiftItem(it, x, y)));
+        x += c.width + cellGap;
+      }
+      y += h;
     }
   }
   return { pages, wrapped };

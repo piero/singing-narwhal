@@ -6,6 +6,8 @@
   import { impose, PAGE_SIZES, type PageSizeName } from '../core/impose';
   import { DEFAULT_STYLE, layoutSong, withFont, type Columns } from '../core/layout';
   import { convertNotation, songKey, songNotation, transposeSong } from '../core/transform';
+  import { CHORD_LIBRARY, chordKey, findShape, parseLibrary, setSongShapes, shapeFor, songChords, songShapes, type ChordShape } from '../core/diagrams';
+  import ChordDiagram from './ChordDiagram.svelte';
   import FontSelect from './FontSelect.svelte';
   import Preview from './Preview.svelte';
   import Splitter from './Splitter.svelte';
@@ -123,6 +125,42 @@
   });
   const sheets = $derived(laid ? impose(laid.pages, { kind: songSettings.imposition, foldLine: true }) : []);
 
+  // Chord diagrams: the song's {define} lines, picked from the chord library.
+  let library = $state<ChordShape[]>([]);
+  $effect(() => {
+    workspace
+      .readText(CHORD_LIBRARY)
+      .then((text) => (library = parseLibrary(text)))
+      .catch(() => (library = []));
+  });
+  const shapes = $derived(songShapes(doc));
+  const used = $derived(new Set(songChords(doc).map(chordKey)));
+  /** Library chords the song doesn't show yet, named in the song's notation. */
+  const addable = $derived(library.filter((l) => !shapes.some((s) => chordKey(s.name) === chordKey(l.name))).map((l) => shapeFor(l, notation)));
+  /** Diagram shown in a chip's tooltip. */
+  let peek = $state<number | null>(null);
+
+  const setShapes = (list: ChordShape[]) => change(setSongShapes(doc, list), true);
+
+  function addShape(name: string) {
+    const s = addable.find((a) => a.name === name);
+    if (s) setShapes([...shapes, s]);
+  }
+
+  /** Add the library's diagrams of the song's chords, in the order the song plays them. */
+  function addSongChords() {
+    const list = [...shapes];
+    const missing: string[] = [];
+    for (const c of songChords(doc)) {
+      if (list.some((s) => chordKey(s.name) === chordKey(c))) continue;
+      const found = findShape(library, c);
+      if (found) list.push({ ...found, name: c });
+      else missing.push(c);
+    }
+    if (list.length !== shapes.length) setShapes(list);
+    status = missing.length ? t('song.diagramsMissing', { chords: missing.join(', ') }) : '';
+  }
+
   async function exportPdf() {
     // pdf-lib is loaded on the first export, to keep it out of the initial download.
     const { renderPdf } = await import('../core/pdf');
@@ -165,9 +203,39 @@
         </span>
         <span class="seg" role="group" aria-label={t('opt.transpose')}>
           {t('opt.transpose')}
-          <button disabled={!notation} title={t('song.transposeDown')} onclick={() => change(transposeSong(doc, -1), true)}>−½</button>
-          <button disabled={!notation} title={t('song.transposeUp')} onclick={() => change(transposeSong(doc, 1), true)}>+½</button>
+          <button disabled={!notation} title={t('song.transposeDown')} onclick={() => change(transposeSong(doc, -1, library), true)}>−½</button>
+          <button disabled={!notation} title={t('song.transposeUp')} onclick={() => change(transposeSong(doc, 1, library), true)}>+½</button>
         </span>
+      </div>
+      <div class="row diagrams" role="group" aria-label={t('song.diagrams')}>
+        <span class="caption" title={t('song.diagramsHelp')}>{t('song.diagrams')}</span>
+        {#each shapes as s, i (i)}
+          <span
+            class="chip"
+            class:unused={!used.has(chordKey(s.name))}
+            title={used.has(chordKey(s.name)) ? s.name : t('song.diagramUnused', { name: s.name })}
+            onmouseenter={() => (peek = i)}
+            onmouseleave={() => (peek = null)}
+            role="listitem">
+            {s.name}
+            <button aria-label={t('song.diagramRemove', { name: s.name })} onclick={() => setShapes(shapes.filter((_, k) => k !== i))}>×</button>
+            {#if peek === i}<span class="peek"><ChordDiagram shape={s} {fonts} scale={1.6} /></span>{/if}
+          </span>
+        {/each}
+        {#if library.length}
+          <select
+            aria-label={t('song.diagramAdd')}
+            onchange={(e) => {
+              addShape(e.currentTarget.value);
+              e.currentTarget.value = '';
+            }}>
+            <option value="">+ {t('song.diagramAdd')}</option>
+            {#each addable as a (a.name)}<option value={a.name}>{a.name}</option>{/each}
+          </select>
+          <button class="small" disabled={!notation} title={t('song.diagramsSongHelp')} onclick={addSongChords}>{t('song.diagramsSong')}</button>
+        {:else}
+          <span class="hint">{t('song.diagramsNoLibrary')}</span>
+        {/if}
       </div>
       </div>
       <div class="row tabs">
@@ -381,6 +449,73 @@
     gap: 16px;
     font-size: 13px;
     color: var(--muted);
+  }
+  .diagrams {
+    flex-wrap: wrap;
+    gap: 6px;
+    font-size: 13px;
+  }
+  .diagrams .caption {
+    color: var(--muted);
+    margin-right: 4px;
+  }
+  .chip {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 1px 2px 1px 8px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--sidebar);
+    font-weight: 600;
+  }
+  .chip.unused {
+    color: var(--muted);
+    border-style: dashed;
+    font-weight: 400;
+  }
+  .chip button {
+    border: none;
+    background: none;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 0 5px;
+    border-radius: 10px;
+    font: inherit;
+  }
+  .chip button:hover {
+    color: var(--fg);
+    background: var(--chip-hover);
+  }
+  .peek {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    z-index: 5;
+    padding: 6px 8px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--bg);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    pointer-events: none;
+  }
+  .diagrams select {
+    font: inherit;
+    font-size: 13px;
+    padding: 1px 4px;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    background: var(--bg);
+    color: var(--fg);
+  }
+  .diagrams .small {
+    font-size: 12px;
+    padding: 2px 8px;
+  }
+  .diagrams .hint {
+    color: var(--muted);
+    font-size: 12px;
   }
   .seg {
     display: inline-flex;

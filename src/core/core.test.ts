@@ -28,7 +28,12 @@ describe('chords', () => {
   });
 
   it('converts notation', () => {
-    expect(renderChord('Am', it_('italian'))).toBe('Lam');
+    expect(renderChord('Am', it_('italian'))).toBe('La-');
+    expect(renderChord('F#m7', it_('italian'))).toBe('Fa#-7');
+    expect(renderChord('Bbmin', it_('italian'))).toBe('Sib-');
+    expect(renderChord('Amin7', it_('english', 2))).toBe('Bmin7');
+    expect(parseChord('Amin7/G')).toMatchObject({ root: { pc: 9 }, minor: true, minorMark: 'min', suffix: '7', bass: { pc: 7 } });
+    expect(parseChord('Amaj7')).toMatchObject({ minor: false, suffix: 'maj7' });
     expect(renderChord('La-', it_('english'))).toBe('Am');
     expect(renderChord('Lam', it_('english'))).toBe('Am');
     expect(renderChord('Mi–7', it_('italian', 2))).toBe('Fa#-7');
@@ -163,7 +168,7 @@ describe('song transforms', () => {
   it('converts notation, keeping unparsed chords', () => {
     const out = serializeSong(convertNotation(parseSong(src), 'italian'));
     expect(out).toContain('{key: Re}');
-    expect(out).toContain('[Re]Siamo [Sim]aquile [N.C.]ran[Fa#7]dagie');
+    expect(out).toContain('[Re]Siamo [Si-]aquile [N.C.]ran[Fa#7]dagie');
     expect(songNotation(parseSong(out))).toBe('italian');
   });
 

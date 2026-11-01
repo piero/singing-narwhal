@@ -47,6 +47,8 @@
               <line x1={it.x1} y1={it.y1} x2={it.x2} y2={it.y2} stroke="black" stroke-width={it.width} />
             {:else if it.type === 'rect'}
               <rect x={it.x} y={it.y} width={it.width} height={it.height} rx={it.radius} fill="none" stroke="black" stroke-width={it.lineWidth} />
+            {:else if it.type === 'dot'}
+              <circle cx={it.x} cy={it.y} r={it.r} fill={it.fill ? 'black' : 'none'} stroke={it.fill ? 'none' : 'black'} stroke-width={it.lineWidth} />
             {:else if it.type === 'image'}
               <image href={imageUrl(it.src)} x={it.x} y={it.y} width={it.width} height={it.height} />
             {/if}

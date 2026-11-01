@@ -53,7 +53,8 @@ function parseNote(s: string): { note: Note; rest: string } | null {
   return { note: { pc, letter, accidental }, rest: s.slice(m[0].length) };
 }
 
-const MINOR_RE = /^(m(?!aj)|min|-|–|−)/;
+// "min" before "m", which would leave "in" behind (Amin7).
+const MINOR_RE = /^(min|m(?!aj)|-|–|−)/;
 
 export function parseChord(text: string): Chord | null {
   const s = text.trim();
@@ -143,8 +144,10 @@ export function renderChord(text: string, opts: ChordRenderOptions): string {
   if (!c) return text;
   const from = chordNotation(text);
   const notation = opts.notation === 'original' ? from : opts.notation;
-  // "La-" is common in Italian songbooks, "A-" much less so in English ones.
+  // Minor chords in Do Re Mi are written "La-", the usual sign in Italian songbooks;
+  // in English "Am" ("A-" is rare). Chords already in their notation keep their sign.
   if (from === 'italian' && notation === 'english' && c.minorMark === '-') c.minorMark = 'm';
+  if (from === 'english' && notation === 'italian' && c.minor) c.minorMark = '-';
   return formatChord(transposeChord(c, opts.transpose, opts.spelling ?? 'auto'), notation);
 }
 
@@ -188,7 +191,7 @@ export function guessKey(chords: string[]): string | null {
   const flat = (best.minor ? FLAT_KEYS_MINOR : FLAT_KEYS_MAJOR).has(best.tonic);
   const [letter, accidental] = (flat ? FLAT_SPELLING : SHARP_SPELLING)[best.tonic];
   const root = spelled ?? { pc: best.tonic, letter, accidental };
-  return noteName(root, notation) + (best.minor ? (tonicChord?.minorMark ?? 'm') : '');
+  return noteName(root, notation) + (best.minor ? (tonicChord?.minorMark ?? (notation === 'italian' ? '-' : 'm')) : '');
 }
 
 const FLAT_KEYS_MAJOR = new Set([5, 10, 3, 8, 1, 6]); // F Bb Eb Ab Db Gb

@@ -1,6 +1,6 @@
 <script lang="ts" module>
   /** Metadata directives, edited in the form above the editor rather than inline. */
-  export const META = new Set(['title', 'subtitle', 'artist', 'key', 'columns', 'capo', 'tempo', 'time', 'album', 'year', 'composer', 'lyricist', 'copyright']);
+  export const META = new Set(['title', 'define', 'subtitle', 'artist', 'key', 'columns', 'capo', 'tempo', 'time', 'album', 'year', 'composer', 'lyricist', 'copyright']);
 </script>
 
 <script lang="ts">

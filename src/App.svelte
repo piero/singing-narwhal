@@ -9,6 +9,8 @@
   import { deleteFiles, renameFile, renameSong, songbookIndex } from './ui/fileops';
   import { onSaveError, settleSaves } from './ui/saves';
   import BookView from './ui/BookView.svelte';
+  import ChordLibraryView from './ui/ChordLibraryView.svelte';
+  import { CHORD_LIBRARY } from './core/diagrams';
   import { i18n, LANGS, setLang, t, type Lang } from './ui/i18n.svelte';
   import ImportDialog from './ui/ImportDialog.svelte';
   import PageView from './ui/PageView.svelte';
@@ -21,6 +23,7 @@
     copyWorkspace,
     EXAMPLE_BOOK,
     exampleFiles,
+    isChordLibrary,
     isPage,
     isSong,
     isSongbook,
@@ -578,6 +581,13 @@
       {#each pages as f (f)}{@render item(f, '📄 ' + baseName(f))}{/each}
     </ul>
 
+    <h3>{t('side.chords')}</h3>
+    <ul>
+      <li class:active={current === CHORD_LIBRARY}>
+        <button class="open" onclick={() => (current = CHORD_LIBRARY)} title={t('lib.intro')}>🎸 {t('lib.title')}</button>
+      </li>
+    </ul>
+
     <h3>{t('side.songs')} <button class="add" onclick={newSong} title={t('side.newSong')}>+</button></h3>
     <input class="filter" placeholder={t('side.search')} bind:value={filter} />
     <ul class="songs">
@@ -607,8 +617,8 @@
   <main data-pane={pane}>
     <div class="topbar">
       <button class="nav" aria-label={t('nav.menu')} aria-expanded={navOpen} onclick={() => (navOpen = true)}>☰</button>
-      <span class="title">{current ? label(current) : __APP_NAME__}</span>
-      {#if current && fonts}
+      <span class="title">{current ? (isChordLibrary(current) ? t('lib.title') : label(current)) : __APP_NAME__}</span>
+      {#if current && fonts && !isChordLibrary(current)}
         <div class="pane-switch" role="group">
           <button class:on={pane === 'edit'} aria-pressed={pane === 'edit'} onclick={() => (pane = 'edit')}>{t('nav.edit')}</button>
           <button class:on={pane === 'preview'} aria-pressed={pane === 'preview'} onclick={() => (pane = 'preview')}>{t('nav.preview')}</button>
@@ -636,6 +646,10 @@
     {:else if current && isSongbook(current)}
       {#key current}
         <BookView {workspace} path={current} {fonts} {files} onopen={(p) => (current = p)} onfileschanged={refresh} onsaved={refreshIndex} />
+      {/key}
+    {:else if current && isChordLibrary(current)}
+      {#key workspace}
+        <ChordLibraryView {workspace} {fonts} onsaved={refresh} />
       {/key}
     {:else if current && isPage(current)}
       {#key current}

@@ -1,11 +1,12 @@
 // Workspace: the folder holding a group's songs (.cho), songbooks
-// (.songbook.yaml) and images. Three implementations:
+// (.songbook.yaml), pages, images and the chord library. Three implementations:
 //
 // - TinyJS (desktop app): real folder on disk, through the app backend.
 // - Browser folder: File System Access API (Chromium browsers only).
 // - Browser: in the browser's storage (IndexedDB), empty on first use.
 
 import { unzipSync, zipSync } from 'fflate';
+import { CHORD_LIBRARY } from '../core/diagrams';
 import { songbookFiles, type FileLoader } from '../core/songbook';
 import { t } from './i18n.svelte';
 import { idbDelete, idbEntries, idbGet, idbPut, idbPutAll, openDb } from './idb';
@@ -25,7 +26,9 @@ export interface Workspace extends FileLoader {
   rename(from: string, to: string): Promise<void>;
 }
 
-export const isSong = (p: string) => /\.(cho|chordpro|chopro|crd|pro)$/i.test(p);
+/** The chord library (chords.cho at the top) is ChordPro too, but not a song. */
+export const isChordLibrary = (p: string) => p === CHORD_LIBRARY;
+export const isSong = (p: string) => /\.(cho|chordpro|chopro|crd|pro)$/i.test(p) && !isChordLibrary(p);
 export const isSongbook = (p: string) => /\.songbook\.ya?ml$/i.test(p);
 export const isPage = (p: string) => /\.page\.ya?ml$/i.test(p);
 export const isImage = (p: string) => /\.(png|jpe?g)$/i.test(p);
