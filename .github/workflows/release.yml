@@ -140,8 +140,9 @@ jobs:
 
           - **macOS** (Apple Silicon and Intel): `Singing-Narwhal-macos.dmg`. Open it and drag
             Singing Narwhal to Applications. The app isn't signed by Apple, so the first time
-            macOS refuses to open it: go to System Settings → Privacy & Security and click
-            **Open Anyway**.
+            macOS says it "could not verify" it: click **Done**, then go to System Settings →
+            Privacy & Security and click **Open Anyway**, or run
+            `xattr -dr com.apple.quarantine "/Applications/Singing Narwhal.app"` in Terminal.
           - **Windows** (beta): `Singing-Narwhal-windows.zip`. Unzip it anywhere and run
             `narwhal.exe` (keep `launcher.exe` next to it). Windows may warn that it protected
             your PC: click **More info → Run anyway**. Needs the WebView2 runtime, included in

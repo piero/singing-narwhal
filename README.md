@@ -35,10 +35,28 @@ Download the latest desktop app
   or [ARM](https://github.com/piero/singing-narwhal/releases/latest/download/Singing-Narwhal-linux-arm64.tar.gz)
 
 Older versions and what changed in each are on the
-[releases page](https://github.com/piero/singing-narwhal/releases). The app isn't signed yet, so the first time macOS refuses to open it: go to System Settings → Privacy &
-Security and click **Open Anyway**. On Windows, unzip it, run `narwhal.exe` and, if
-warned, click **More info → Run anyway**. On Linux, unpack it and run `narwhal`; it needs
-WebKitGTK 4.1 (`sudo apt install libwebkit2gtk-4.1-0` on Debian/Ubuntu 24.04 or newer).
+[releases page](https://github.com/piero/singing-narwhal/releases).
+
+**macOS:** open the `.dmg` and drag Singing Narwhal to Applications. The app isn't signed
+by Apple yet, so the first time you open it macOS says *"Singing Narwhal.app" Not Opened:
+Apple could not verify…*. Click **Done** (not Move to Bin), then either:
+
+- open System Settings → Privacy & Security, scroll down to *"Singing Narwhal.app" was
+  blocked*, click **Open Anyway** and confirm with your password; or
+- in Terminal, take the app out of quarantine:
+
+  ```sh
+  xattr -dr com.apple.quarantine "/Applications/Singing Narwhal.app"
+  ```
+
+After that it opens normally. Each new version you download needs this once again.
+
+**Windows:** unzip it anywhere and run `narwhal.exe` (keep `launcher.exe` next to it). If
+Windows says it protected your PC, click **More info → Run anyway**.
+
+**Linux:** unpack it anywhere and run `narwhal` (keep `launcher` and `icon.png` next to
+it). It needs WebKitGTK 4.1: `sudo apt install libwebkit2gtk-4.1-0` on Debian/Ubuntu 24.04
+or newer.
 
 The website also works on phones and tablets: the sidebar opens from ☰, and on narrow
 screens **Edit | Preview** at the top switches between the editor and the printed page.
