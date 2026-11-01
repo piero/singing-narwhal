@@ -10,7 +10,7 @@
   import { onSaveError, settleSaves } from './ui/saves';
   import BookView from './ui/BookView.svelte';
   import ChordLibraryView from './ui/ChordLibraryView.svelte';
-  import { CHORD_LIBRARY } from './core/diagrams';
+  import { CHORD_LIBRARY, compareLibraries, mergeLibraries, parseLibrary, serializeLibrary, shapesNotation, shapeFor } from './core/diagrams';
   import { i18n, LANGS, setLang, t, type Lang } from './ui/i18n.svelte';
   import ImportDialog from './ui/ImportDialog.svelte';
   import PageView from './ui/PageView.svelte';
@@ -25,6 +25,7 @@
     exampleFiles,
     isChordLibrary,
     isPage,
+    pickLocalFiles,
     isSong,
     isSongbook,
     pickFolder,
@@ -336,6 +337,32 @@
     await saveFile(path.split('/').pop()!, await workspace.readBytes(path), 'text/plain');
   }
 
+  /**
+   * Add the chords of ChordPro files (an exported chord library, or songs with {define}
+   * lines) to the chord library: new ones are added; those it has with another shape
+   * replace them if the user agrees.
+   */
+  async function importChords() {
+    menu = null;
+    const picked = await pickLocalFiles(['cho', 'chordpro', 'chopro', 'crd', 'pro', 'txt'], true);
+    if (!picked.length) return;
+    const incoming = picked.flatMap((f) => parseLibrary(new TextDecoder().decode(f.bytes)));
+    if (!incoming.length) {
+      error = t('lib.importNone', { files: picked.map((f) => f.name).join(', ') });
+      return;
+    }
+    // The library view, if open, closes while the file changes, saving its edits first.
+    await withEditorsClosed(async () => {
+      const library = files.includes(CHORD_LIBRARY) ? parseLibrary(await workspace.readText(CHORD_LIBRARY)) : [];
+      const notation = shapesNotation(library);
+      const { added, changed, same } = compareLibraries(library, incoming.map((s) => shapeFor(s, notation)));
+      const replace = changed.length > 0 && confirm(t('lib.importReplace', { n: changed.length, names: changed.map((s) => s.name).join(', ') }));
+      if (added.length || replace) await workspace.writeText(CHORD_LIBRARY, serializeLibrary(mergeLibraries(library, incoming, replace)));
+      notice = t('lib.imported', { added: added.length, replaced: replace ? changed.length : 0, kept: same.length + (replace ? 0 : changed.length) });
+      return { from: '', to: null };
+    });
+  }
+
   function uniqueName(base: string, ext: string) {
     let name = `${base}${ext}`;
     for (let i = 2; files.includes(name); i++) name = `${base}-${i}${ext}`;
@@ -583,8 +610,9 @@
 
     <h3>{t('side.chords')}</h3>
     <ul>
-      <li class:active={current === CHORD_LIBRARY}>
+      <li class:active={current === CHORD_LIBRARY} class:menu-open={menu?.path === CHORD_LIBRARY} oncontextmenu={(e) => openMenu(CHORD_LIBRARY, e)}>
         <button class="open" onclick={() => (current = CHORD_LIBRARY)} title={t('lib.intro')}>🎸 {t('lib.title')}</button>
+        <button class="more" title={t('menu.more')} aria-label={t('menu.more')} onclick={(e) => openMenu(CHORD_LIBRARY, e)}>⋯</button>
       </li>
     </ul>
 
@@ -678,12 +706,17 @@
 {#if menu}
   {@const m = menu}
   <div class="menu" role="menu" style="left: {m.x}px; top: {m.y}px">
-    <button role="menuitem" onclick={() => rename(m.path)}>{t('menu.rename')}</button>
-    <button role="menuitem" onclick={() => saveCopy(m.path)}>{t('menu.saveAs')}</button>
-    {#if isSongbook(m.path)}
-      <button role="menuitem" onclick={() => downloadBookZip(m.path)}>{t('book.zip')}</button>
+    {#if isChordLibrary(m.path)}
+      <button role="menuitem" title={t('lib.importHelp')} onclick={importChords}>{t('lib.import')}</button>
+      <button role="menuitem" title={t('lib.exportHelp')} disabled={!files.includes(CHORD_LIBRARY)} onclick={() => saveCopy(CHORD_LIBRARY)}>{t('lib.export')}</button>
+    {:else}
+      <button role="menuitem" onclick={() => rename(m.path)}>{t('menu.rename')}</button>
+      <button role="menuitem" onclick={() => saveCopy(m.path)}>{t('menu.saveAs')}</button>
+      {#if isSongbook(m.path)}
+        <button role="menuitem" onclick={() => downloadBookZip(m.path)}>{t('book.zip')}</button>
+      {/if}
+      <button role="menuitem" class="danger" onclick={() => remove([m.path])}>{t('menu.delete')}</button>
     {/if}
-    <button role="menuitem" class="danger" onclick={() => remove([m.path])}>{t('menu.delete')}</button>
   </div>
 {/if}
 

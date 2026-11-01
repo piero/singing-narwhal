@@ -139,6 +139,24 @@
   const addable = $derived(library.filter((l) => !shapes.some((s) => chordKey(s.name) === chordKey(l.name))).map((l) => shapeFor(l, notation)));
   /** Diagram shown in a chip's tooltip. */
   let peek = $state<number | null>(null);
+  /** The diagrams row is a one-line summary until opened; remembered between songs. */
+  const OPEN_KEY = 'narwhal:diagramsOpen';
+  let diagramsOpen = $state(readOpen());
+  function readOpen() {
+    try {
+      return localStorage.getItem(OPEN_KEY) === '1';
+    } catch {
+      return false;
+    }
+  }
+  function toggleDiagrams() {
+    diagramsOpen = !diagramsOpen;
+    try {
+      localStorage.setItem(OPEN_KEY, diagramsOpen ? '1' : '0');
+    } catch {
+      /* storage unavailable */
+    }
+  }
 
   const setShapes = (list: ChordShape[]) => change(setSongShapes(doc, list), true);
 
@@ -207,34 +225,48 @@
           <button disabled={!notation} title={t('song.transposeUp')} onclick={() => change(transposeSong(doc, 1, library), true)}>+½</button>
         </span>
       </div>
-      <div class="row diagrams" role="group" aria-label={t('song.diagrams')}>
-        <span class="caption" title={t('song.diagramsHelp')}>{t('song.diagrams')}</span>
-        {#each shapes as s, i (i)}
-          <span
-            class="chip"
-            class:unused={!used.has(chordKey(s.name))}
-            title={used.has(chordKey(s.name)) ? s.name : t('song.diagramUnused', { name: s.name })}
-            onmouseenter={() => (peek = i)}
-            onmouseleave={() => (peek = null)}
-            role="listitem">
-            {s.name}
-            <button aria-label={t('song.diagramRemove', { name: s.name })} onclick={() => setShapes(shapes.filter((_, k) => k !== i))}>×</button>
-            {#if peek === i}<span class="peek"><ChordDiagram shape={s} {fonts} scale={1.6} /></span>{/if}
-          </span>
-        {/each}
-        {#if library.length}
-          <select
-            aria-label={t('song.diagramAdd')}
-            onchange={(e) => {
-              addShape(e.currentTarget.value);
-              e.currentTarget.value = '';
-            }}>
-            <option value="">+ {t('song.diagramAdd')}</option>
-            {#each addable as a (a.name)}<option value={a.name}>{a.name}</option>{/each}
-          </select>
-          <button class="small" disabled={!notation} title={t('song.diagramsSongHelp')} onclick={addSongChords}>{t('song.diagramsSong')}</button>
-        {:else}
-          <span class="hint">{t('song.diagramsNoLibrary')}</span>
+      <div class="diagrams" role="group" aria-label={t('song.diagrams')}>
+        <button class="summary" aria-expanded={diagramsOpen} title={t('song.diagramsHelp')} onclick={() => toggleDiagrams()}>
+          <span class="chevron" class:open={diagramsOpen} aria-hidden="true">▸</span>
+          <span class="caption">{t('song.diagrams')}{shapes.length ? ` (${shapes.length})` : ''}</span>
+          {#if !diagramsOpen}<span class="names">{shapes.length ? shapes.map((s) => s.name).join('  ') : t('song.diagramsNone')}</span>{/if}
+        </button>
+        {#if diagramsOpen}
+          <div class="panel">
+            {#if shapes.length}
+              <ul class="chips">
+                {#each shapes as s, i (i)}
+                  <li
+                    class="chip"
+                    class:unused={!used.has(chordKey(s.name))}
+                    title={used.has(chordKey(s.name)) ? s.name : t('song.diagramUnused', { name: s.name })}
+                    onmouseenter={() => (peek = i)}
+                    onmouseleave={() => (peek = null)}>
+                    {s.name}
+                    <button aria-label={t('song.diagramRemove', { name: s.name })} onclick={() => setShapes(shapes.filter((_, k) => k !== i))}>×</button>
+                    {#if peek === i}<span class="peek"><ChordDiagram shape={s} {fonts} scale={1.6} /></span>{/if}
+                  </li>
+                {/each}
+              </ul>
+            {/if}
+            <div class="adders">
+              {#if library.length}
+                <select
+                  aria-label={t('song.diagramAdd')}
+                  onchange={(e) => {
+                    addShape(e.currentTarget.value);
+                    e.currentTarget.value = '';
+                  }}>
+                  <option value="">+ {t('song.diagramAdd')}</option>
+                  {#each addable as a (a.name)}<option value={a.name}>{a.name}</option>{/each}
+                </select>
+                <button class="small" disabled={!notation} title={t('song.diagramsSongHelp')} onclick={addSongChords}>{t('song.diagramsSong')}</button>
+                {#if shapes.length}<button class="small link" onclick={() => setShapes([])}>{t('song.diagramsClear')}</button>{/if}
+              {:else}
+                <span class="hint">{t('song.diagramsNoLibrary')}</span>
+              {/if}
+            </div>
+          </div>
         {/if}
       </div>
       </div>
@@ -451,24 +483,80 @@
     color: var(--muted);
   }
   .diagrams {
-    flex-wrap: wrap;
-    gap: 6px;
     font-size: 13px;
+    min-width: 0;
   }
-  .diagrams .caption {
+  .summary {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    min-width: 0;
+    padding: 2px 0;
+    border: none;
+    background: none;
+    color: var(--fg);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .summary .chevron {
+    flex: none;
     color: var(--muted);
-    margin-right: 4px;
+    font-size: 11px;
+    transition: transform 0.15s;
+  }
+  .summary .chevron.open {
+    transform: rotate(90deg);
+  }
+  .summary .caption {
+    flex: none;
+    color: var(--muted);
+  }
+  .summary .names {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 600;
+    word-spacing: 4px;
+  }
+  .panel {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 6px 0 2px 17px;
+    padding: 8px 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--sidebar);
+  }
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .adders {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
   }
   .chip {
     position: relative;
     display: inline-flex;
     align-items: center;
-    gap: 2px;
-    padding: 1px 2px 1px 8px;
+    gap: 1px;
+    padding: 0 1px 0 7px;
     border: 1px solid var(--line);
-    border-radius: 12px;
-    background: var(--sidebar);
+    border-radius: 11px;
+    background: var(--bg);
     font-weight: 600;
+    font-size: 12px;
+    line-height: 20px;
   }
   .chip.unused {
     color: var(--muted);
@@ -512,6 +600,13 @@
   .diagrams .small {
     font-size: 12px;
     padding: 2px 8px;
+  }
+  .diagrams .link {
+    border: none;
+    background: none;
+    color: var(--accent);
+    padding: 0;
+    cursor: pointer;
   }
   .diagrams .hint {
     color: var(--muted);

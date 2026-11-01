@@ -12,7 +12,7 @@
 // copies its definition into the song, so the song stays complete on its own.
 
 import { parseSong, type SongDoc, type SongLine } from './chordpro';
-import { parseChord, renderChord, type Notation } from './chords';
+import { chordNotation, parseChord, renderChord, type Notation } from './chords';
 import type { FontRegistry } from './fonts';
 import type { DrawItem } from './layout';
 
@@ -137,6 +137,55 @@ export function serializeLibrary(shapes: ChordShape[]): string {
     '',
   ];
   return [...head, ...shapes.map((s) => `{define: ${formatDefine(s)}}`)].join('\n') + '\n';
+}
+
+/**
+ * How `incoming` chords (an imported library, or any ChordPro file's {define} lines)
+ * would join `library`: chords it lacks, chords it has with another shape, and chords it
+ * already has as they are. Matched whatever their notation; the first of duplicates wins.
+ */
+export function compareLibraries(library: ChordShape[], incoming: ChordShape[]): { added: ChordShape[]; changed: ChordShape[]; same: ChordShape[] } {
+  const have = new Map<string, ChordShape>();
+  for (const s of library) if (!have.has(chordKey(s.name))) have.set(chordKey(s.name), s);
+  const out = { added: [] as ChordShape[], changed: [] as ChordShape[], same: [] as ChordShape[] };
+  const seen = new Set<string>();
+  for (const s of incoming) {
+    const k = chordKey(s.name);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    const mine = have.get(k);
+    if (!mine) out.added.push(s);
+    else if (formatDefine({ ...mine, name: '' }) === formatDefine({ ...s, name: '' })) out.same.push(s);
+    else out.changed.push(s);
+  }
+  return out;
+}
+
+/** Notation of most chord names in a list, null without any. */
+export function shapesNotation(shapes: ChordShape[]): Notation | null {
+  let it = 0;
+  let en = 0;
+  for (const s of shapes) {
+    if (!parseChord(s.name)) continue;
+    if (chordNotation(s.name) === 'italian') it++;
+    else en++;
+  }
+  return it + en === 0 ? null : it > en ? 'italian' : 'english';
+}
+
+/**
+ * `library` with the `incoming` chords: new ones added at the end, named in the
+ * library's notation; with `replace`, those it has with another shape take the new shape
+ * (keeping their place and name).
+ */
+export function mergeLibraries(library: ChordShape[], incoming: ChordShape[], replace: boolean): ChordShape[] {
+  const notation = shapesNotation(library);
+  const { added, changed } = compareLibraries(library, incoming.map((s) => shapeFor(s, notation)));
+  const out = library.map((s) => {
+    const c = replace && changed.find((x) => chordKey(x.name) === chordKey(s.name));
+    return c ? { ...c, name: s.name } : s;
+  });
+  return [...out, ...added];
 }
 
 /** Common guitar chords, to start a library from. */

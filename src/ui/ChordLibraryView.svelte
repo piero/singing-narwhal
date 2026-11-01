@@ -1,10 +1,11 @@
 <script lang="ts">
   // The chord library (chords.cho): diagrams that songs can show after their lyrics.
   // Each chord is edited on its diagram (click the frets) or as ChordPro numbers; the
-  // file is a list of {define} lines, rewritten on every change.
+  // file is a list of {define} lines, rewritten on every change. Importing and exporting
+  // it are in its menu in the sidebar (App.svelte).
   import { onDestroy, tick } from 'svelte';
-  import { chordNotation, parseChord, renderChord, type Notation } from '../core/chords';
-  import { CHORD_LIBRARY, chordKey, COMMON_GUITAR_CHORDS, parseLibrary, serializeLibrary, type ChordShape } from '../core/diagrams';
+  import { chordNotation, noteName, parseChord, renderChord, type Notation } from '../core/chords';
+  import { CHORD_LIBRARY, chordKey, COMMON_GUITAR_CHORDS, parseLibrary, serializeLibrary, shapesNotation, type ChordShape } from '../core/diagrams';
   import type { FontRegistry } from '../core/fonts';
   import ChordDiagram from './ChordDiagram.svelte';
   import { t } from './i18n.svelte';
@@ -77,50 +78,86 @@
     }
   }
   /**
-   * Positions in the file, by note: by root (C, C#, D, …), then major before minor, then
-   * by name. Computed when asked for, not while typing, so that a card being renamed stays
-   * in place; chords added since are shown at the end.
+   * By note, the chords are grouped by root (C, C#, D, …), major before minor, then by
+   * name. Positions and groups are computed when asked for (and when a name is finished),
+   * not while typing, so that a card being renamed stays in place; chords added since
+   * wait in a group of their own at the end.
    */
-  let byNote = $state<number[]>([]);
+  let byNote = $state<{ i: number; group: string; label: string }[]>([]);
   function sortByNote() {
+    const list = shapes ?? [];
+    const root = (s: ChordShape) => parseChord(s.name)?.root;
     const rank = (s: ChordShape) => {
       const c = parseChord(s.name);
       return c ? c.root.pc * 2 + (c.minor ? 1 : 0) : 99;
     };
-    const list = shapes ?? [];
     byNote = list
       .map((_, i) => i)
-      .sort((a, b) => rank(list[a]) - rank(list[b]) || list[a].name.length - list[b].name.length || list[a].name.localeCompare(list[b].name));
+      .sort((a, b) => rank(list[a]) - rank(list[b]) || list[a].name.length - list[b].name.length || list[a].name.localeCompare(list[b].name))
+      .map((i) => {
+        const r = root(list[i]);
+        return { i, group: r ? String(r.pc) : 'other', label: r ? noteName(r, chordNotation(list[i].name)) : t('lib.groupOther') };
+      });
   }
 
-  const shown = $derived.by(() => {
+  type Group = { key: string; label: string; items: { s: ChordShape; i: number }[] };
+  /** The chords to show, in groups (a single one in the file's order), after the search. */
+  const groups = $derived.by((): Group[] => {
     const list = shapes ?? [];
-    let indices = list.map((_, i) => i);
-    if (order === 'note') {
-      const sorted = byNote.filter((i) => i < list.length);
-      const seen = new Set(sorted);
-      indices = [...sorted, ...indices.filter((i) => !seen.has(i))];
-    }
     const q = filter.trim().toLowerCase();
-    return indices.map((i) => ({ s: list[i], i })).filter(({ s }) => !q || s.name.toLowerCase().includes(q));
-  });
-
-  /** Notation of most chord names, null without any. */
-  const notation = $derived.by((): Notation | null => {
-    let it = 0;
-    let en = 0;
-    for (const s of shapes ?? []) {
-      if (!parseChord(s.name)) continue;
-      if (chordNotation(s.name) === 'italian') it++;
-      else en++;
+    const match = (i: number) => !q || list[i].name.toLowerCase().includes(q);
+    if (order === 'file') return [{ key: 'all', label: '', items: list.map((s, i) => ({ s, i })).filter(({ i }) => match(i)) }];
+    const out: Group[] = [];
+    const seen = new Set<number>();
+    for (const { i, group, label } of byNote) {
+      if (i >= list.length) continue;
+      seen.add(i);
+      if (!match(i)) continue;
+      // A group is named after its first chord's root, as that chord spells it.
+      if (out.at(-1)?.key !== group) out.push({ key: group, label, items: [] });
+      out.at(-1)!.items.push({ s: list[i], i });
     }
-    return it + en === 0 ? null : it > en ? 'italian' : 'english';
+    const added = list.map((s, i) => ({ s, i })).filter(({ i }) => !seen.has(i) && match(i));
+    if (added.length) out.push({ key: 'new', label: t('lib.groupNew'), items: added });
+    return out;
   });
+  const shown = $derived(groups.flatMap((g) => g.items));
+
+  // Groups folded away, remembered between sessions; a search shows every group with matches.
+  const CLOSED_KEY = 'narwhal:chordGroupsClosed';
+  let closed = $state<string[]>(readClosed());
+  function readClosed(): string[] {
+    try {
+      return JSON.parse(localStorage.getItem(CLOSED_KEY) ?? '[]');
+    } catch {
+      return [];
+    }
+  }
+  function setClosed(list: string[]) {
+    closed = list;
+    try {
+      localStorage.setItem(CLOSED_KEY, JSON.stringify(list));
+    } catch {
+      /* storage unavailable */
+    }
+  }
+  /** A name was finished: by note, the chord joins its group, which opens to show it. */
+  function finishName(i: number) {
+    if (order !== 'note') return;
+    sortByNote();
+    const g = byNote.find((x) => x.i === i)?.group;
+    if (g && closed.includes(g)) setClosed(closed.filter((k) => k !== g));
+  }
+  const isOpen = (g: Group) => !!filter.trim() || !closed.includes(g.key);
+  const toggle = (g: Group) => setClosed(closed.includes(g.key) ? closed.filter((k) => k !== g.key) : [...closed, g.key]);
+
+  const notation = $derived(shapesNotation(shapes ?? []));
 
   /** Rewrite every chord name in a notation (songs find chords in either). */
   function convert(to: Notation) {
     shapes = shapes!.map((s) => ({ ...s, name: renderChord(s.name, { notation: to, transpose: 0 }) }));
     status = '';
+    if (order === 'note') sortByNote(); // group names follow
   }
 
   /** For each chord also defined earlier in the list, that earlier name: songs get the first. */
@@ -165,6 +202,7 @@
     const strings = shapes!.at(-1)?.frets.length ?? 6;
     shapes!.push({ name: '', baseFret: 1, frets: Array(strings).fill(0), fingers: Array(strings).fill('') });
     filter = '';
+    if (closed.includes('new')) setClosed(closed.filter((k) => k !== 'new'));
     await tick();
     const inputs = list?.querySelectorAll<HTMLInputElement>('input.name');
     inputs?.[inputs.length - 1]?.focus();
@@ -188,6 +226,39 @@
   }
 </script>
 
+{#snippet card(s: ChordShape, i: number)}
+  <li class="card" class:dup={duplicateOf[i]}>
+    <div class="draw">
+      <ChordDiagram shape={s} {fonts} label={s.name || '?'} onchange={(n) => update(i, n)} />
+    </div>
+    <div class="fields">
+      <label>
+        <span>{t('lib.name')}</span>
+        <input
+          class="name"
+          value={s.name}
+          placeholder="Am"
+          oninput={(e) => update(i, { ...s, name: e.currentTarget.value.replace(/\s+/g, '') })}
+          onchange={() => finishName(i)} />
+      </label>
+      <label title={t('lib.baseFretHelp')}>
+        <span>{t('lib.baseFret')}</span>
+        <input type="number" min="1" max="24" value={s.baseFret} oninput={(e) => update(i, { ...s, baseFret: Math.max(1, Math.floor(Number(e.currentTarget.value)) || 1) })} />
+      </label>
+      <label class="wide" title={t('lib.fretsHelp')}>
+        <span>{t('lib.frets')}</span>
+        <input class="mono" class:invalid={invalid[`${i}:frets`]} value={fretsText(s)} oninput={(e) => setFrets(i, e.currentTarget.value)} spellcheck="false" />
+      </label>
+      <label class="wide" title={t('lib.fingersHelp')}>
+        <span>{t('lib.fingers')}</span>
+        <input class="mono" class:invalid={invalid[`${i}:fingers`]} value={fingersText(s)} oninput={(e) => setFingers(i, e.currentTarget.value)} spellcheck="false" />
+      </label>
+      {#if duplicateOf[i]}<p class="warn">{t('lib.duplicate', { name: duplicateOf[i] })}</p>{/if}
+    </div>
+    <button class="remove" title={t('lib.remove')} aria-label={t('lib.remove')} onclick={() => remove(i)}>×</button>
+  </li>
+{/snippet}
+
 <div class="library">
   <header>
     <h2>{t('lib.title')}</h2>
@@ -207,6 +278,9 @@
           <button class:active={order === 'file'} aria-pressed={order === 'file'} title={t('lib.orderFileHelp')} onclick={() => setOrder('file')}>{t('lib.orderFile')}</button>
           <button class:active={order === 'note'} aria-pressed={order === 'note'} title={t('lib.orderNoteHelp')} onclick={() => setOrder('note')}>{t('lib.orderNote')}</button>
         </span>
+        {#if order === 'note'}
+          <button class="link" onclick={() => setClosed(closed.length ? [] : groups.map((g) => g.key))}>{closed.length ? t('lib.expandAll') : t('lib.collapseAll')}</button>
+        {/if}
         <span class="status">{status || t('lib.count', { n: shapes.length })}</span>
       </div>
     {/if}
@@ -219,35 +293,24 @@
       <button onclick={addChord}>{t('lib.startEmpty')}</button>
     </div>
   {:else if shapes}
-    <ul class="cards" bind:this={list}>
-      {#each shown as { s, i } (i)}
-        <li class="card" class:dup={duplicateOf[i]}>
-          <div class="draw">
-            <ChordDiagram shape={s} {fonts} label={s.name || '?'} onchange={(n) => update(i, n)} />
-          </div>
-          <div class="fields">
-            <label>
-              <span>{t('lib.name')}</span>
-              <input class="name" value={s.name} placeholder="Am" oninput={(e) => update(i, { ...s, name: e.currentTarget.value.replace(/\s+/g, '') })} />
-            </label>
-            <label title={t('lib.baseFretHelp')}>
-              <span>{t('lib.baseFret')}</span>
-              <input type="number" min="1" max="24" value={s.baseFret} oninput={(e) => update(i, { ...s, baseFret: Math.max(1, Math.floor(Number(e.currentTarget.value)) || 1) })} />
-            </label>
-            <label class="wide" title={t('lib.fretsHelp')}>
-              <span>{t('lib.frets')}</span>
-              <input class="mono" class:invalid={invalid[`${i}:frets`]} value={fretsText(s)} oninput={(e) => setFrets(i, e.currentTarget.value)} spellcheck="false" />
-            </label>
-            <label class="wide" title={t('lib.fingersHelp')}>
-              <span>{t('lib.fingers')}</span>
-              <input class="mono" class:invalid={invalid[`${i}:fingers`]} value={fingersText(s)} oninput={(e) => setFingers(i, e.currentTarget.value)} spellcheck="false" />
-            </label>
-            {#if duplicateOf[i]}<p class="warn">{t('lib.duplicate', { name: duplicateOf[i] })}</p>{/if}
-          </div>
-          <button class="remove" title={t('lib.remove')} aria-label={t('lib.remove')} onclick={() => remove(i)}>×</button>
-        </li>
+    <div bind:this={list}>
+      {#each groups as g (g.key)}
+        {#if order === 'note'}
+          <h3 class="group">
+            <button aria-expanded={isOpen(g)} onclick={() => toggle(g)} disabled={!!filter.trim()}>
+              <span class="chevron" class:open={isOpen(g)} aria-hidden="true">▸</span>
+              {g.label}
+              <span class="n">{g.items.length}</span>
+            </button>
+          </h3>
+        {/if}
+        {#if order === 'file' || isOpen(g)}
+          <ul class="cards">
+            {#each g.items as { s, i } (i)}{@render card(s, i)}{/each}
+          </ul>
+        {/if}
       {/each}
-    </ul>
+    </div>
     {#if filter && !shown.length}<p class="none">{t('lib.noMatch')}</p>{/if}
   {/if}
 </div>
@@ -347,6 +410,48 @@
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
     gap: 10px;
+  }
+  .group {
+    margin: 14px 0 8px;
+    font-size: 15px;
+  }
+  .group button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border: none;
+    background: none;
+    color: var(--fg);
+    font: inherit;
+    font-weight: 600;
+    padding: 2px 6px 2px 0;
+    cursor: pointer;
+  }
+  .group button:disabled {
+    cursor: default;
+  }
+  .chevron {
+    display: inline-block;
+    color: var(--muted);
+    font-size: 12px;
+    transition: transform 0.15s;
+  }
+  .chevron.open {
+    transform: rotate(90deg);
+  }
+  .group .n {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--muted);
+  }
+  .link {
+    border: none;
+    background: none;
+    color: var(--accent);
+    cursor: pointer;
+    padding: 0;
+    font: inherit;
+    font-size: 13px;
   }
   .card {
     position: relative;

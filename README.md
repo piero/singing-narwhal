@@ -145,8 +145,8 @@ page, for players who need a reminder of the fingering.
    Start with the common guitar chords (about 40, changeable) or from an empty library.
    **+ Chord** adds one; **Add common guitar chords** adds those the library is missing.
    **Chords: Do Re Mi | C D E** rewrites the chord names in either notation, and
-   **Order: As added | By note** shows the list in the file's order or by note (the file
-   keeps its order).
+   **Order: As added | By note** shows the list in the file's order or grouped by note
+   (C, C#, D…; the file keeps its order). Click a group's name to collapse or expand it.
 2. **Draw each chord:** click a fret on the diagram to put a finger there (click again to
    lift it), and click above the grid to switch a string between open (○) and muted (×).
    Or type the numbers:
@@ -156,11 +156,19 @@ page, for players who need a reminder of the fingering.
      printed beside the diagram).
    - **Fingers** are optional (1–4, `0` for none); the same finger on several strings
      is drawn as a barre.
-3. **Pick a song's diagrams:** in the song, next to **Diagrams** (under ⋯ on a phone),
-   choose chords from **+ Add…**, or click **The song's chords** to add every chord the
-   song uses that the library has. Hover a chip to see its diagram; **×** removes it. A
+3. **Pick a song's diagrams:** in the song, click **▸ Diagrams** (under ⋯ on a phone;
+   closed, it lists the song's diagrams on one line). Choose chords from **+ Add…**, or
+   click **The song's chords** to add every chord the song uses that the library has.
+   Hover a chip to see its diagram; **×** removes it, **Remove all** removes them all. A
    dashed chip is a chord the song doesn't use (for example, after a transposition the
    library couldn't follow).
+
+To share a library or move it to another workspace, use the ⋯ menu next to **Chord
+library**:
+- **Export library…** saves it as `chords.cho`.
+- **Import chords…** adds the chords of such a file, or of any ChordPro song with
+  `{define}` lines. Chords you already have with a different shape are listed, and you
+  choose whether to replace them.
 
 Each diagram is copied into the song, so the song prints the same anywhere, also when
 shared or imported elsewhere. Changing the library later doesn't change the songs: remove

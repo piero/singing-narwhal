@@ -271,6 +271,11 @@ lines, with a comment header.
 - **Reading and writing:** the Chord library view reads it with the song parser and
   rewrites the whole file on every change. Other lines in it are not kept.
 - **Starter chords:** `COMMON_GUITAR_CHORDS` holds about 40 guitar chords to start from.
+- **Import and export:** the library's ⋯ menu in the sidebar exports `chords.cho` and
+  imports the `{define}` lines of any ChordPro file (`compareLibraries`,
+  `mergeLibraries`). Chords are matched whatever their notation. New ones are added in
+  the library's notation; differing ones replace the library's only if the user agrees.
+  A file named `chords.cho` in the import dialog replaces the library as a whole.
 - **Adding to a song:** picking a diagram in a song copies its definition into the song,
   after the metadata, named in the song's notation. Songs therefore don't depend on the
   library: they print the same in songbooks, zips, the CLI and other ChordPro tools.

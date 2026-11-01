@@ -4,6 +4,8 @@ import { describe, expect, it } from 'vitest';
 import { parseSong, serializeSong } from './chordpro';
 import {
   COMMON_GUITAR_CHORDS,
+  compareLibraries,
+  mergeLibraries,
   diagramItems,
   findShape,
   formatDefine,
@@ -51,6 +53,33 @@ describe('chord definitions', () => {
     expect(findShape(library, 'Am7')?.name).toBe('Am7');
     expect(findShape(library, 'Am9')).toBeUndefined();
     expect(shapeFor(findShape(library, 'Am')!, 'italian').name).toBe('La-');
+  });
+
+  it('compares an imported library with the workspace one', () => {
+    const incoming = parseLibrary(
+      [
+        '{define: La- base-fret 1 frets x 0 2 2 1 0 fingers 0 0 2 3 1 0}', // the same as Am
+        '{define: G base-fret 1 frets 3 2 0 0 3 3}', // another G
+        '{define: Cadd9 base-fret 1 frets x 3 2 0 3 3}', // new
+        '{define: Cadd9 base-fret 1 frets x 3 2 0 3 0}', // a duplicate: ignored
+      ].join('\n'),
+    );
+    const r = compareLibraries(library, incoming);
+    expect(r.same.map((s) => s.name)).toEqual(['La-']);
+    expect(r.changed.map((s) => s.name)).toEqual(['G']);
+    expect(r.added.map((s) => s.name)).toEqual(['Cadd9']);
+    expect(r.added[0].frets).toEqual([-1, 3, 2, 0, 3, 3]);
+  });
+
+  it('merges imported chords, in the library notation', () => {
+    const mine = parseLibrary('{define: La- base-fret 1 frets x 0 2 2 1 0}\n{define: Sol base-fret 1 frets 3 2 0 0 0 3}');
+    const incoming = parseLibrary('{define: G base-fret 1 frets 3 2 0 0 3 3}\n{define: Em base-fret 1 frets 0 2 2 0 0 0}');
+    expect(mergeLibraries(mine, incoming, false).map(formatDefine)).toEqual([
+      'La- base-fret 1 frets x 0 2 2 1 0',
+      'Sol base-fret 1 frets 3 2 0 0 0 3',
+      'Mi- base-fret 1 frets 0 2 2 0 0 0',
+    ]);
+    expect(mergeLibraries(mine, incoming, true)[1]).toMatchObject({ name: 'Sol', frets: [3, 2, 0, 0, 3, 3] });
   });
 
   it('keeps the starter library valid', () => {
