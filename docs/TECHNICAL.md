@@ -226,7 +226,13 @@ Unrecognised chords (`N.C.`, `|`, `x2`) are printed as written and never transpo
 Converting the notation or transposing rewrites the chords in the file. Minor chords keep
 the sign they were written with (`Lam` → `Sim`, `La-` → `Si-`); converting to Do Re Mi
 writes `Am` as `Lam`, and converting to C D E writes `Lam` and `La-` as `Am`.
-Transposition spells accidentals for the new key (D+1 → E♭, not D♯), using `{key}`.
+Transposition spells accidentals for the new key (D+1 → E♭, not D♯), using `{key}`. A song
+without `{key}` gets one guessed from its chords (`guessKey` in `chords.ts`): each of the 24
+keys scores the song's chords, fully for chords of the key (with both fifths in minor),
+partly for other roots on its scale, negatively for the rest, and its tonic chord scores
+extra, most of all as the first and the last chord, which tells a major key from its
+relative minor. The guess is shown in the editor's Key field but written to the file only
+if the user types it.
 
 ### Songbooks (`.songbook.yaml`)
 

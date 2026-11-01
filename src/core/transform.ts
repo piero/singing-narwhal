@@ -2,7 +2,7 @@
 // These change the song itself (what the editor shows and what is saved).
 
 import { getMeta, setMeta, type SongDoc } from './chordpro';
-import { chordNotation, parseChord, renderChord, spellingForKey, type Notation } from './chords';
+import { chordNotation, guessKey, parseChord, renderChord, spellingForKey, type Notation } from './chords';
 
 function mapChords(doc: SongDoc, fn: (chord: string) => string): SongDoc {
   return {
@@ -10,11 +10,23 @@ function mapChords(doc: SongDoc, fn: (chord: string) => string): SongDoc {
   };
 }
 
+/**
+ * The song's key: its {key} if it has one, otherwise guessed from the chords (and
+ * not written to the song unless the user types it).
+ */
+export function songKey(doc: SongDoc): { key: string | null; guessed: boolean } {
+  const key = getMeta(doc, 'key');
+  if (key) return { key, guessed: false };
+  const chords = doc.lines.flatMap((l) => (l.kind === 'lyrics' ? l.chords.map((c) => c.chord) : []));
+  return { key: guessKey(chords), guessed: true };
+}
+
 /** Transpose all chords (and the key) by a number of semitones. */
 export function transposeSong(doc: SongDoc, semitones: number): SongDoc {
   if (semitones % 12 === 0) return doc;
   const key = getMeta(doc, 'key');
-  const spelling = spellingForKey(key, semitones);
+  // Without a {key}, sharps or flats follow the guessed key.
+  const spelling = spellingForKey(songKey(doc).key ?? undefined, semitones);
   const opts = { notation: 'original' as const, transpose: semitones, spelling };
   let out = mapChords(doc, (c) => renderChord(c, opts));
   if (key && parseChord(key)) out = setMeta(out, 'key', renderChord(key, opts));

@@ -148,6 +148,49 @@ export function renderChord(text: string, opts: ChordRenderOptions): string {
   return formatChord(transposeChord(c, opts.transpose, opts.spelling ?? 'auto'), notation);
 }
 
+// Chords that belong to a key, as (semitones above the tonic, minor). Minor keys
+// include both the minor and the major (harmonic) fifth.
+const MAJOR_CHORDS: [number, boolean][] = [[0, false], [2, true], [4, true], [5, false], [7, false], [9, true]];
+const MINOR_CHORDS: [number, boolean][] = [[0, true], [3, false], [5, true], [7, true], [7, false], [8, false], [10, false]];
+const MAJOR_SCALE = [0, 2, 4, 5, 7, 9, 11];
+const MINOR_SCALE = [0, 2, 3, 5, 7, 8, 10, 11];
+
+/**
+ * The most likely key of a song from its chords, in their order, e.g. "G" or "Lam";
+ * null without chords. Each key scores its own chords (fully) and chords on its scale
+ * (partly); the tonic chord counts extra, most of all as the first and last chord,
+ * which tells a major key from its relative minor. The name keeps the song's
+ * notation and its spelling of that note.
+ */
+export function guessKey(chords: string[]): string | null {
+  const parsed = chords.map((text) => ({ text, c: parseChord(text) })).filter((x): x is { text: string; c: Chord } => !!x.c);
+  if (!parsed.length) return null;
+  let best = { score: -Infinity, tonic: 0, minor: false };
+  for (const minor of [false, true]) {
+    const own = minor ? MINOR_CHORDS : MAJOR_CHORDS;
+    const scale = minor ? MINOR_SCALE : MAJOR_SCALE;
+    for (let tonic = 0; tonic < 12; tonic++) {
+      let score = 0;
+      for (const [i, { c }] of parsed.entries()) {
+        const step = (c.root.pc - tonic + 12) % 12;
+        if (own.some(([s, m]) => s === step && m === c.minor)) score += 1;
+        else if (scale.includes(step)) score += 0.3;
+        else score -= 0.5;
+        if (step === 0 && c.minor === minor) score += 0.5 + (i === 0 ? 1 : 0) + (i === parsed.length - 1 ? 2 : 0);
+      }
+      if (score > best.score) best = { score, tonic, minor };
+    }
+  }
+  // Name: as the song spells the tonic, else with the accidentals of that key.
+  const notation = chordNotation(parsed[0].text);
+  const tonicChord = parsed.find(({ c }) => c.root.pc === best.tonic && c.minor === best.minor)?.c;
+  const spelled = tonicChord?.root ?? parsed.find(({ c }) => c.root.pc === best.tonic)?.c.root;
+  const flat = (best.minor ? FLAT_KEYS_MINOR : FLAT_KEYS_MAJOR).has(best.tonic);
+  const [letter, accidental] = (flat ? FLAT_SPELLING : SHARP_SPELLING)[best.tonic];
+  const root = spelled ?? { pc: best.tonic, letter, accidental };
+  return noteName(root, notation) + (best.minor ? (tonicChord?.minorMark ?? 'm') : '');
+}
+
 const FLAT_KEYS_MAJOR = new Set([5, 10, 3, 8, 1, 6]); // F Bb Eb Ab Db Gb
 const FLAT_KEYS_MINOR = new Set([2, 7, 0, 5, 10, 3]); // Dm Gm Cm Fm Bbm Ebm
 

@@ -228,7 +228,6 @@
 
   const fmtDate = (ms: number) => new Date(ms).toLocaleDateString(i18n.lang, { day: 'numeric', month: 'short', year: 'numeric' });
   const needsBackup = $derived(workspace.kind === 'browser' && backup.lastChange > backup.lastBackup);
-  const where = (ws: Workspace) => (ws.kind === 'browser' ? t('where.browser') : t('where.folder', { name: ws.name }));
 
   async function openFolder() {
     try {
@@ -632,7 +631,7 @@
       <div class="empty">{t('app.loading')}</div>
     {:else if current && isSong(current)}
       {#key current}
-        <SongView {workspace} path={current} {fonts} onsaved={refresh} location={t('file.where', { path: current, where: where(workspace) })} />
+        <SongView {workspace} path={current} {fonts} onsaved={refresh} />
       {/key}
     {:else if current && isSongbook(current)}
       {#key current}

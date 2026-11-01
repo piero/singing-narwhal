@@ -95,6 +95,9 @@ imported. A document holding many songs is imported as one song for now.
    copy and paste them with their chords. Long lines wrap; chords follow their letters.
 4. **Chords: Do Re Mi | C D E** converts the chord names; **Transpose −½ / +½** changes
    the key. Both edit the song and can be undone.
+5. The **Key** field (under ⋯) shows the song's key. If the song doesn't state one, the
+   key is guessed from the chords and shown in grey italics; type a key to set it. The key
+   decides whether transposing writes sharps or flats (E♭ rather than D♯ in B♭).
 
 Changes are saved automatically. If a save fails (for example, no space left), a red
 error bar says so.
@@ -102,7 +105,8 @@ error bar says so.
 ### Print a song
 
 In the preview on the right, choose the page size, how to print (1 per sheet, 2 copies per
-sheet, 2 pages per sheet), the columns and the font, then **Export PDF**.
+sheet, 2 pages per sheet), the columns and the font, and whether to show the chords
+(untick **Show chords** for a lyrics-only sheet; the song keeps its chords), then **Export PDF**.
 
 ### Fonts
 

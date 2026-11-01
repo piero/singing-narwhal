@@ -5,7 +5,7 @@
   import type { FontRegistry } from '../core/fonts';
   import { impose, PAGE_SIZES, type PageSizeName } from '../core/impose';
   import { DEFAULT_STYLE, layoutSong, withFont, type Columns } from '../core/layout';
-  import { convertNotation, songNotation, transposeSong } from '../core/transform';
+  import { convertNotation, songKey, songNotation, transposeSong } from '../core/transform';
   import FontSelect from './FontSelect.svelte';
   import Preview from './Preview.svelte';
   import VisualEditor from './VisualEditor.svelte';
@@ -18,8 +18,7 @@
     path,
     fonts,
     onsaved,
-    location = '',
-  }: { workspace: Workspace; path: string; fonts: FontRegistry; onsaved?: () => void; location?: string } = $props();
+  }: { workspace: Workspace; path: string; fonts: FontRegistry; onsaved?: () => void } = $props();
 
   let doc: SongDoc = $state({ lines: [] });
   let loadedPath = '';
@@ -106,6 +105,8 @@
   const setM = (name: string, value: string) => change(setMeta(doc, name, value));
 
   const notation = $derived(songNotation(doc));
+  // Without {key}, the field shows a key guessed from the chords; typing one saves it.
+  const key = $derived(songKey(doc));
   const columns = $derived((meta('columns') === '1' ? 1 : meta('columns') === '2' ? 2 : 'auto') as Columns);
   const style = $derived(withFont(DEFAULT_STYLE, fonts, songSettings.font, songSettings.fontSize || DEFAULT_STYLE.lyrics.size));
   const laid = $derived.by(() => {
@@ -145,7 +146,15 @@
       <div class="details" class:open={showDetails}>
       <div class="row">
         <input placeholder={t('song.artist')} value={meta('artist')} oninput={(e) => setM('artist', e.currentTarget.value)} />
-        <input class="short" placeholder={t('song.key')} value={meta('key')} oninput={(e) => setM('key', e.currentTarget.value)} />
+        <input
+          class="short"
+          class:guessed={key.guessed}
+          placeholder={t('song.key')}
+          aria-label={t('song.key')}
+          title={key.guessed && key.key ? t('song.keyGuessed') : t('song.key')}
+          value={key.key ?? ''}
+          oninput={(e) => setM('key', e.currentTarget.value)}
+          onblur={(e) => (e.currentTarget.value = key.key ?? '')} />
       </div>
       <div class="row chord-tools">
         <span class="seg" role="group" aria-label={t('opt.chords')}>
@@ -158,21 +167,12 @@
           <button disabled={!notation} title={t('song.transposeDown')} onclick={() => change(transposeSong(doc, -1), true)}>−½</button>
           <button disabled={!notation} title={t('song.transposeUp')} onclick={() => change(transposeSong(doc, 1), true)}>+½</button>
         </span>
-        <button
-          class="toggle"
-          aria-pressed={!songSettings.showChords}
-          title={t('song.chordsToggleHelp')}
-          onclick={() => {
-            songSettings.showChords = !songSettings.showChords;
-            saveSettings();
-          }}>{songSettings.showChords ? t('song.hideChords') : t('song.showChords')}</button
-        >
       </div>
       </div>
       <div class="row tabs">
         <button class:active={mode === 'visual'} onclick={() => (mode = 'visual')}>{t('song.editor')}</button>
         <button class:active={mode === 'source'} onclick={() => (mode = 'source')}>{t('song.source')}</button>
-        <span class="status" title={location}>{status}<span class="where">{status ? ' · ' : ''}{location}</span></span>
+        <span class="status">{status}</span>
       </div>
     </div>
     <div class="editor-scroll">
@@ -225,6 +225,10 @@
         {t('opt.fontSize')}
         <input class="size" type="number" step="0.5" min="6" max="20" bind:value={songSettings.fontSize} onchange={saveSettings} />
       </label>
+      <label title={t('song.chordsToggleHelp')}>
+        <input type="checkbox" bind:checked={songSettings.showChords} onchange={saveSettings} />
+        {t('song.showChords')}
+      </label>
       <button class="primary" onclick={exportPdf} disabled={!laid}>{t('opt.exportPdf')}</button>
     </div>
     {#if laid}
@@ -268,6 +272,10 @@
     border-radius: 4px;
     background: var(--bg);
     color: var(--fg);
+  }
+  .meta input.guessed {
+    color: var(--muted);
+    font-style: italic;
   }
   .meta .title {
     flex: 1;
@@ -391,14 +399,6 @@
   .seg button:last-of-type {
     border-radius: 0 5px 5px 0;
   }
-  .toggle {
-    border: 1px solid var(--line);
-    border-radius: 5px;
-    background: var(--bg);
-    color: var(--fg);
-    padding: 2px 9px;
-    cursor: pointer;
-  }
   .seg button.active {
     background: var(--accent);
     border-color: var(--accent);
@@ -438,9 +438,6 @@
       display: block;
     }
     .details:not(.open) {
-      display: none;
-    }
-    .status .where {
       display: none;
     }
     .source {

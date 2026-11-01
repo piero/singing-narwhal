@@ -1,11 +1,11 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { parseChord, renderChord, spellingForKey } from './chords';
-import { parseSong, serializeSong } from './chordpro';
+import { guessKey, parseChord, renderChord, spellingForKey } from './chords';
+import { getMeta, parseSong, serializeSong } from './chordpro';
 import { FontRegistry, BUNDLED_FONTS } from './fonts';
 import { bookletOrder } from './impose';
-import { convertNotation, songNotation, transposeSong } from './transform';
+import { convertNotation, songKey, songNotation, transposeSong } from './transform';
 import { DEFAULT_STYLE, isInlineChordLine, layoutSong, structure, withFont } from './layout';
 import { resolveBookPath, songbookFiles } from './songbook';
 import { breakAround, copyLines, linesToText, removeLines, textToLines, wrapLines } from './sections';
@@ -254,5 +254,40 @@ describe('line selection edits', () => {
     const copied = linesToText(lines.slice(0, 2));
     expect(copied).toBe('A [Do]uno\nB due\n');
     expect(textToLines(copied)).toEqual(lines.slice(0, 2));
+  });
+});
+
+describe('key guessing', () => {
+  const chords = (s: string) => s.split(' ');
+
+  it('finds major keys from their chords, first and last chord', () => {
+    expect(guessKey(chords('C G Am F C'))).toBe('C');
+    expect(guessKey(chords('G D Em C G D G'))).toBe('G');
+    expect(guessKey(chords('F Bb C7 F'))).toBe('F');
+  });
+
+  it('tells a minor key from its relative major', () => {
+    expect(guessKey(chords('Am Dm E7 Am'))).toBe('Am');
+    expect(guessKey(chords('Em C G D Em'))).toBe('Em');
+  });
+
+  it('keeps the notation, minor marker and spelling of the song', () => {
+    expect(guessKey(chords('Re La Si- Sol Re'))).toBe('Re');
+    expect(guessKey(chords('La- Re- Mi La-'))).toBe('La-');
+    expect(guessKey(chords('Eb Ab Bb7 Eb'))).toBe('Eb');
+    expect(guessKey([])).toBeNull();
+    expect(guessKey(['N.C.'])).toBeNull();
+  });
+
+  it('uses {key} when the song has one, the guess otherwise', () => {
+    expect(songKey(parseSong('{key: D}\n[C]la [G]la'))).toEqual({ key: 'D', guessed: false });
+    expect(songKey(parseSong('[Am]la [Dm]la [E]la [Am]la'))).toEqual({ key: 'Am', guessed: true });
+  });
+
+  it('spells transposed chords for the guessed key, without writing it', () => {
+    // G up 6 semitones is D flat major: Db Gb Ab, where the default would write C# F# Ab.
+    const song = transposeSong(parseSong('[G]la [C]la [D]la [G]la'), 6);
+    expect(serializeSong(song).trim()).toBe('[Db]la [Gb]la [Ab]la [Db]la');
+    expect(getMeta(song, 'key')).toBeUndefined();
   });
 });

@@ -7,6 +7,7 @@
 import { getMeta, type SongDoc, type ChordAnchor } from './chordpro';
 import { renderChord, spellingForKey, type Notation, type Spelling } from './chords';
 import { fontVariant, loadedFont, type FontRegistry } from './fonts';
+import { songKey } from './transform';
 
 export interface TextStyle {
   font: string;
@@ -196,7 +197,7 @@ export function structure(doc: SongDoc): SongStructure {
   const s: SongStructure = {
     title: getMeta(doc, 'title') ?? '',
     subtitle: [getMeta(doc, 'subtitle'), getMeta(doc, 'artist')].filter(Boolean).join(' – '),
-    key: getMeta(doc, 'key'),
+    key: songKey(doc).key ?? undefined,
     blocks: [],
   };
   const cols = Number(getMeta(doc, 'columns'));
