@@ -403,9 +403,16 @@ esbuild and run by txiki.js).
 - `tinyjs.json` registers `.cho`, `.chordpro`, `.odt` and `.odg` with macOS. Files opened
   from Finder or dropped on the Dock icon arrive through `tiny.app.onOpenFiles` (also at
   launch) and open the import dialog once the workspace and fonts are ready.
-- `tinyjs build --dmg` produces a `.dmg` in `.build/`. By default it runs only on the CPU
-  type of the Mac that built it; it is signed ad-hoc, so macOS warns about an unidentified
-  developer unless a Developer ID is configured (`signIdentity`). Updates are not set up yet.
+- `tinyjs build --dmg` produces a `.dmg` in `dist/`. By default it runs only on the CPU
+  type of the Mac that built it; release builds use `--universal`. It is signed ad-hoc, so
+  macOS warns about an unidentified developer unless a Developer ID is configured
+  (`signIdentity`). Updates are not set up yet.
+- Releases are built by GitHub Actions when a version tag is pushed
+  (`.github/workflows/release.yml`): a universal `.dmg` on a macOS runner and a portable
+  `.zip` (`narwhal.exe` + `launcher.exe`, the page bundled inside the `.exe`) on a Windows
+  runner, attached to a GitHub release. See [Releases](DEVELOPMENT.md#releases).
+- On Windows the backend also scans the Windows font folders for installed fonts; the
+  rest of the app uses the same TinyJS APIs, which TinyJS supports on Windows in beta.
 
 ### Command line
 
@@ -423,7 +430,7 @@ ChordPro, using the same `src/core` code with fonts read from `public/fonts/`. S
 | Dialogs | browser file picker / download | native macOS panels (no suggested file name when saving) |
 | Updates | immediate on reload | new `.dmg` |
 | Installation | none | `.dmg`; unsigned builds trigger a macOS warning |
-| Platforms | any modern browser | macOS (built per CPU type unless configured) |
+| Platforms | any modern browser | macOS (universal release builds); Windows in beta |
 | Offline | no | yes |
 | Installed fonts | Chrome and Edge, after the user allows it | always |
 

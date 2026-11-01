@@ -1,0 +1,117 @@
+# Desktop app builds for a release. Pushing a version tag (`npm run release`, then
+# `git push --follow-tags`; see "Releases" in docs/DEVELOPMENT.md) builds a universal
+# macOS .dmg and a portable Windows .zip, both unsigned, and publishes them as a GitHub
+# release. Run it by hand (Actions → Release → Run workflow) to test the builds: they
+# are kept as workflow artifacts, and no release is made.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # The TinyJS release the app is built with; both installers read it.
+  TINYJS_VERSION: v0.53.1
+
+jobs:
+  macos:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+      - run: npm ci
+      - name: Check that the tag matches the version
+        if: github.ref_type == 'tag'
+        run: |
+          version="v$(node -p "require('./package.json').version")"
+          if [ "$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME doesn't match package.json ($version): use npm run release"
+            exit 1
+          fi
+      - run: npm run check
+      - run: npm test
+      - name: Install TinyJS
+        run: curl -fsSL https://tinyjs.app/install | sh
+      # One app for Apple Silicon and Intel Macs; ad-hoc signed (no Developer ID).
+      - run: ~/.tinyjs/tinyjs build --universal --dmg
+      - name: Name the disk image
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          mv dist/narwhal-"$version".dmg "Singing-Narwhal-$version-macos.dmg"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: Singing-Narwhal-*-macos.dmg
+          if-no-files-found: error
+
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+      - run: npm ci
+      - name: Install TinyJS
+        run: |
+          irm https://tinyjs.app/install.ps1 | iex
+          # The installer adds itself to the user PATH, which this shell doesn't see.
+          Add-Content $env:GITHUB_PATH "$env:LOCALAPPDATA\tinyjs"
+      - run: tinyjs build
+      # A portable folder: narwhal.exe (the app, with its pages inside) and
+      # launcher.exe, which must stay next to it.
+      - name: Zip the app
+        run: |
+          $version = node -p "require('./package.json').version"
+          New-Item -ItemType Directory 'Singing Narwhal' | Out-Null
+          Copy-Item dist/narwhal.exe, dist/launcher.exe 'Singing Narwhal'
+          Compress-Archive -Path 'Singing Narwhal' -DestinationPath "Singing-Narwhal-$version-windows.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: Singing-Narwhal-*-windows.zip
+          if-no-files-found: error
+
+  release:
+    if: github.ref_type == 'tag'
+    needs: [macos, windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cat > notes.md <<'EOF'
+          ## Download
+
+          - **macOS** (Apple Silicon and Intel): `Singing-Narwhal-…-macos.dmg`. Open it and drag
+            Singing Narwhal to Applications. The app isn't signed by Apple, so the first time
+            macOS refuses to open it: go to System Settings → Privacy & Security and click
+            **Open Anyway**.
+          - **Windows** (beta): `Singing-Narwhal-…-windows.zip`. Unzip it anywhere and run
+            `narwhal.exe` (keep `launcher.exe` next to it). Windows may warn that it protected
+            your PC: click **More info → Run anyway**. Needs the WebView2 runtime, included in
+            Windows 11.
+
+          EOF
+          gh release create "$GITHUB_REF_NAME" Singing-Narwhal-* \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Singing Narwhal ${GITHUB_REF_NAME#v}" \
+            --notes-file notes.md \
+            --generate-notes

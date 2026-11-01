@@ -22,9 +22,15 @@ Songs with chords, laid out for printing, assembled into songbooks.
 
 | | Where your files are kept | Good for |
 |---|---|---|
-| **Desktop app** (macOS) | a folder on your computer, `~/Documents/SingingNarwhal` by default | a group's real songbook |
+| **Desktop app** (macOS; Windows in beta) | a folder on your computer, `~/Documents/SingingNarwhal` by default | a group's real songbook |
 | **Website in Chrome or Edge** | a folder on your computer that you choose | the same, without installing anything |
 | **Website in Safari or Firefox** | inside the browser, until you download a backup | trying it out, quick edits |
+
+Download the desktop app from the [releases page](https://github.com/piero/singing-narwhal/releases):
+the `.dmg` for macOS (Apple Silicon and Intel), the `.zip` for Windows. The app isn't
+signed yet, so the first time macOS refuses to open it: go to System Settings → Privacy &
+Security and click **Open Anyway**. On Windows, unzip it, run `narwhal.exe` and, if
+warned, click **More info → Run anyway**.
 
 The website also works on phones and tablets: the sidebar opens from ☰, and on narrow
 screens **Edit | Preview** at the top switches between the editor and the printed page.

@@ -66,8 +66,25 @@ npm run release -- minor    # 0.1.0 → 0.2.0: new features
 npm run release -- major    # 0.1.0 → 1.0.0: breaking changes (e.g. file formats)
 npm run release -- 0.3.0    # or an exact version
 git push --follow-tags      # publish the commit and the tag
-tinyjs build --dmg          # .dmg named after the version, in .build/
 ```
+
+Pushing the tag starts the **Release** workflow (`.github/workflows/release.yml`) on GitHub
+Actions. It checks that the tag matches `package.json`, runs the type check and tests,
+builds the desktop app on GitHub's macOS and Windows machines and publishes a GitHub
+release with:
+
+- `Singing-Narwhal-X.Y.Z-macos.dmg`: one app for Apple Silicon and Intel Macs
+  (`tinyjs build --universal --dmg`);
+- `Singing-Narwhal-X.Y.Z-windows.zip`: the portable Windows app (`narwhal.exe` and
+  `launcher.exe`, from `tinyjs build`).
+
+Both are unsigned, so macOS asks users to allow the app in System Settings → Privacy &
+Security, and Windows shows a SmartScreen warning; the release notes explain both. Signing
+needs an Apple Developer ID (and notarization) and a Windows code-signing certificate,
+stored as repository secrets. The workflow pins the TinyJS version (`TINYJS_VERSION`);
+update it there when upgrading TinyJS locally. To try the builds without releasing, run
+the workflow by hand (Actions → Release → Run workflow) and download them from the run's
+artifacts. Windows support in TinyJS is in beta, and the Windows app is tested only by hand.
 
 `npm run release` is `npm version`: it refuses to run with uncommitted changes, sets the
 version in `package.json` and `package-lock.json`, runs `scripts/sync-version.mjs` to copy
