@@ -9,6 +9,8 @@
   import { ImageUrls } from './assets.svelte';
   import { i18n, t, type Key } from './i18n.svelte';
   import Preview from './Preview.svelte';
+  import { sortable } from './sortable';
+  import DragHandle from './DragHandle.svelte';
   import { importImage, isImage, isPage, isSong, saveFile, zipSongbook, type Workspace } from './workspace';
 
   let {
@@ -102,13 +104,42 @@
 
   const sheets = $derived(built ? (view === 'sheets' ? built.sheets : impose(built.pages, { kind: 'single' })) : []);
 
-  function move(i: number, d: number) {
+  function reorder(from: number, to: number) {
     if (!book) return;
-    const c = book.contents;
-    const j = i + d;
-    if (j < 0 || j >= c.length) return;
-    [c[i], c[j]] = [c[j], c[i]];
+    const [item] = book.contents.splice(from, 1);
+    book.contents.splice(to, 0, item);
   }
+
+  /** Kinds of contents, each with its own hue (see app.css). */
+  type Kind = 'song' | 'page' | 'toc' | 'blank' | 'image';
+  const kindOf = (c: ContentItem): Kind =>
+    c === 'blank' ? 'blank' : 'song' in c ? 'song' : 'page' in c ? 'page' : 'image' in c ? 'image' : 'toc';
+  const KIND_LABEL: Record<Kind, Key> = { song: 'kind.song', page: 'kind.page', toc: 'kind.toc', blank: 'kind.blank', image: 'kind.image' };
+
+  // The settings can be folded away once chosen; remembered in this browser.
+  const SETTINGS_KEY = 'narwhal:bookSettingsOpen';
+  let settingsOpen = $state(readSettingsOpen());
+  function readSettingsOpen() {
+    try {
+      return localStorage.getItem(SETTINGS_KEY) !== '0';
+    } catch {
+      return true;
+    }
+  }
+  function toggleSettings(open: boolean) {
+    settingsOpen = open;
+    try {
+      localStorage.setItem(SETTINGS_KEY, open ? '1' : '0');
+    } catch {
+      /* storage unavailable */
+    }
+  }
+  const IMPOSITIONS: { value: Songbook['imposition']; label: Key }[] = [
+    { value: 'booklet', label: 'opt.booklet' },
+    { value: '2up', label: 'opt.2up' },
+    { value: 'single', label: 'opt.single' },
+    { value: 'copies', label: 'opt.copies' },
+  ];
   function remove(i: number) {
     book?.contents.splice(i, 1);
   }
@@ -148,7 +179,7 @@
   function itemLabel(c: ContentItem): string {
     if (c === 'blank') return t('book.blank');
     if ('song' in c) return titles[abs(c.song)] ?? c.song;
-    if ('image' in c) return t('book.image', { src: c.image });
+    if ('image' in c) return c.image.split('/').pop()!;
     if ('page' in c) return c.page.split('/').pop()!.replace(/\.page\.ya?ml$/i, '');
     return `${t('book.index')} ${c.toc}`;
   }
@@ -187,91 +218,144 @@
 {#if book}
   <div class="book-view">
     <section class="edit-pane">
-      <div class="form">
-        <input class="title" placeholder={t('book.title')} bind:value={book.title} />
-        <div class="grid">
-          <label>{t('opt.page')} <select bind:value={book.page}>{#each Object.keys(PAGE_SIZES) as p (p)}<option value={p}>{p}</option>{/each}</select></label>
-          <label>
-            {t('opt.print')}
-            <select bind:value={book.imposition}>
-              <option value="booklet">{t('opt.booklet')}</option>
-              <option value="2up">{t('opt.2up')}</option>
-              <option value="single">{t('opt.single')}</option>
-              <option value="copies">{t('opt.copies')}</option>
-            </select>
-          </label>
-          <label title={t('book.notationHelp')}>{t('opt.chords')} <select bind:value={book.notation}><option value="original">{t('book.asWritten')}</option><option value="italian">{t('book.allItalian')}</option><option value="english">{t('book.allEnglish')}</option></select></label>
-          <label>{t('song.columns')} <select bind:value={book.columns}><option value="auto">{t('opt.auto')}</option><option value={1}>1</option><option value={2}>2</option></select></label>
-          <label><input type="checkbox" bind:checked={book.showChords} /> {t('book.showChords')}</label>
-          <label><input type="checkbox" bind:checked={book.pageNumbers} /> {t('book.pageNumbers')}</label>
-          <label><input type="checkbox" bind:checked={book.keepSpreads} /> {t('book.keepSpreads')}</label>
-          <label><input type="checkbox" bind:checked={book.foldLine} /> {t('book.foldLine')}</label>
-          <label>{t('book.lyricsSize')} <input type="number" step="0.5" min="6" max="20" bind:value={book.style.lyrics.size} /></label>
-          <label>{t('book.chordsSize')} <input type="number" step="0.5" min="6" max="20" bind:value={book.style.chords.size} /></label>
-        </div>
-      </div>
+      <input class="title" placeholder={t('book.title')} bind:value={book.title} />
 
-      <ol class="contents">
-        {#each book.contents as c, i (i)}
-          <li>
-            <span class="page">{firstPage(c) ?? ''}</span>
-            <span class="label">
+      <details class="settings" open={settingsOpen} ontoggle={(e) => toggleSettings(e.currentTarget.open)}>
+        <summary>
+          <span class="heading">{t('book.settings')}</span>
+          <span class="summary">{book.page} · {t(IMPOSITIONS.find((x) => x.value === book!.imposition)?.label ?? 'opt.booklet')}</span>
+        </summary>
+        <div class="groups">
+          <fieldset>
+            <legend>{t('book.groupPrinting')}</legend>
+            <label class="row">
+              <span>{t('opt.page')}</span>
+              <select bind:value={book.page}>{#each Object.keys(PAGE_SIZES) as p (p)}<option value={p}>{p}</option>{/each}</select>
+            </label>
+            <label class="row">
+              <span>{t('opt.print')}</span>
+              <select bind:value={book.imposition}>
+                {#each IMPOSITIONS as im (im.value)}<option value={im.value}>{t(im.label)}</option>{/each}
+              </select>
+            </label>
+            <label class="check"><input type="checkbox" bind:checked={book.pageNumbers} /> {t('book.pageNumbers')}</label>
+            <label class="check"><input type="checkbox" bind:checked={book.keepSpreads} /> {t('book.keepSpreads')}</label>
+            <label class="check"><input type="checkbox" bind:checked={book.foldLine} /> {t('book.foldLine')}</label>
+          </fieldset>
+          <fieldset>
+            <legend>{t('book.groupSongs')}</legend>
+            <label class="row" title={t('book.notationHelp')}>
+              <span>{t('opt.chords')}</span>
+              <select bind:value={book.notation}>
+                <option value="original">{t('book.asWritten')}</option>
+                <option value="italian">{t('book.allItalian')}</option>
+                <option value="english">{t('book.allEnglish')}</option>
+              </select>
+            </label>
+            <label class="row">
+              <span>{t('song.columns')}</span>
+              <select bind:value={book.columns}><option value="auto">{t('opt.auto')}</option><option value={1}>1</option><option value={2}>2</option></select>
+            </label>
+            <label class="row"><span>{t('book.lyricsSize')}</span><input type="number" step="0.5" min="6" max="20" bind:value={book.style.lyrics.size} /></label>
+            <label class="row"><span>{t('book.chordsSize')}</span><input type="number" step="0.5" min="6" max="20" bind:value={book.style.chords.size} /></label>
+            <label class="check"><input type="checkbox" bind:checked={book.showChords} /> {t('book.showChords')}</label>
+          </fieldset>
+        </div>
+      </details>
+
+      <div class="contents-head">
+        <h3 class="heading">{t('book.contents')}</h3>
+        {#if built}<span class="summary">{t('book.contentsInfo', { items: book.contents.length, pages: built.pages.length })}</span>{/if}
+      </div>
+      {#if book.contents.length}
+        <ol class="contents" use:sortable={{ onmove: reorder }}>
+          {#each book.contents as c, i (i)}
+            {@const kind = kindOf(c)}
+            <li style:--k="var(--k-{kind})">
+              <DragHandle />
+              <span class="page" title={t('book.firstPage')}>{firstPage(c) ?? ''}</span>
+              <span class="kind">{t(KIND_LABEL[kind])}</span>
+              <span class="label">
+                {#if typeof c === 'object' && 'song' in c}
+                  <button class="link" onclick={() => onopen(abs(c.song))}>{itemLabel(c)}</button>
+                {:else if typeof c === 'object' && 'page' in c}
+                  <button class="link" onclick={() => onopen(abs(c.page))}>{itemLabel(c)}</button>
+                {:else if typeof c === 'object' && 'toc' in c}
+                  <input class="inline" aria-label={t('book.indexTitleLabel')} bind:value={c.toc} />
+                {:else}
+                  <span class="plain">{itemLabel(c)}</span>
+                {/if}
+              </span>
               {#if typeof c === 'object' && 'song' in c}
-                <button class="link" onclick={() => onopen(abs(c.song))}>{itemLabel(c)}</button>
-              {:else if typeof c === 'object' && 'page' in c}
-                <button class="link" onclick={() => onopen(abs(c.page))}>📄 {itemLabel(c)}</button>
-                <label class="small"><input type="checkbox" bind:checked={c.page_number} /> {t('book.pageNumber')}</label>
-              {:else if typeof c === 'object' && 'toc' in c}
-                {t('book.index')} <input class="inline" bind:value={c.toc} />
-              {:else}
-                {itemLabel(c)}
-              {/if}
-            </span>
-            {#if typeof c === 'object' && 'song' in c}
-              <span class="opts">
-                <select title="Columns" value={c.columns ?? ''} onchange={(e) => (c.columns = e.currentTarget.value === '' ? undefined : e.currentTarget.value === 'auto' ? 'auto' : (Number(e.currentTarget.value) as 1 | 2))}>
+                <select class="opt" title={t('song.columns')} value={c.columns ?? ''} onchange={(e) => (c.columns = e.currentTarget.value === '' ? undefined : e.currentTarget.value === 'auto' ? 'auto' : (Number(e.currentTarget.value) as 1 | 2))}>
                   <option value="">{t('book.colsBook')}</option>
                   <option value="auto">{t('opt.auto')}</option>
                   <option value="1">1</option>
                   <option value="2">2</option>
                 </select>
-              </span>
-            {/if}
-            <span class="actions">
-              <button title={t('book.moveUp')} onclick={() => move(i, -1)}>↑</button>
-              <button title={t('book.moveDown')} onclick={() => move(i, 1)}>↓</button>
-              <button title={t('book.remove')} onclick={() => remove(i)}>✕</button>
-            </span>
-          </li>
-        {/each}
-      </ol>
+              {:else if typeof c === 'object' && 'page' in c}
+                <label class="opt check"><input type="checkbox" bind:checked={c.page_number} /> {t('book.pageNumber')}</label>
+              {/if}
+              <button class="remove" title={t('book.remove')} aria-label={t('book.remove')} onclick={() => remove(i)}>✕</button>
+            </li>
+          {/each}
+        </ol>
+      {:else}
+        <p class="empty">{t('book.empty')}</p>
+      {/if}
 
       <div class="add">
-        <select bind:value={addSong}>
-          <option value="">{t('book.addSong')}</option>
-          {#each files.filter((f) => isSong(f) && !included.has(f)) as f (f)}<option value={f}>{titles[f] ?? f}</option>{/each}
-        </select>
-        <button disabled={!addSong} onclick={() => { add({ song: rel(addSong) }); addSong = ''; }}>{t('book.add')}</button>
-        <button onclick={() => files.filter((f) => isSong(f) && !included.has(f)).forEach((f) => add({ song: rel(f) }))}>{t('book.addAll')}</button>
-        <button onclick={() => add({ toc: t('book.indexTitle') })}>{t('book.addIndex')}</button>
-        <button onclick={() => add('blank')}>{t('book.addBlank')}</button>
-        <select bind:value={addPage} onchange={() => { addPageItem(addPage); addPage = ''; }}>
-          <option value="">{t('book.addPage')}</option>
-          {#each files.filter(isPage) as f (f)}<option value={f}>📄 {f.split('/').pop()!.replace(/\.page\.ya?ml$/i, '')}</option>{/each}
-          {#each TEMPLATES as tp (tp.name)}<option value={'new:' + tp.name}>{t('book.newFromTemplate', { name: t(tp.label) })}</option>{/each}
-        </select>
-        <select bind:value={addImage}>
-          <option value="">{t('book.addImage')}</option>
-          {#each files.filter(isImage) as f (f)}<option value={f}>{f}</option>{/each}
-        </select>
-        <button disabled={!addImage} onclick={() => { add({ image: rel(addImage) }); addImage = ''; }}>{t('book.add')}</button>
-        <button
-          onclick={async () => {
-            const p = await importImage(workspace, files);
-            if (!p) return;
-            onfileschanged();
-            add({ image: rel(p) });
-          }}>{t('book.imageFromComputer')}</button>
+        <span class="heading">{t('list.add')}</span>
+        <div class="add-row" style:--k="var(--k-song)">
+          <select
+            class="tinted"
+            bind:value={addSong}
+            onchange={() => {
+              if (addSong) add({ song: rel(addSong) });
+              addSong = '';
+            }}>
+            <option value="">{t('book.addSong')}</option>
+            {#each files.filter((f) => isSong(f) && !included.has(f)) as f (f)}<option value={f}>{titles[f] ?? f}</option>{/each}
+          </select>
+          <button class="tinted" onclick={() => files.filter((f) => isSong(f) && !included.has(f)).forEach((f) => add({ song: rel(f) }))}>{t('book.addAll')}</button>
+        </div>
+        <div class="add-row" style:--k="var(--k-page)">
+          <select
+            class="tinted"
+            bind:value={addPage}
+            onchange={() => {
+              addPageItem(addPage);
+              addPage = '';
+            }}>
+            <option value="">{t('book.addPage')}</option>
+            {#each files.filter(isPage) as f (f)}<option value={f}>{f.split('/').pop()!.replace(/\.page\.ya?ml$/i, '')}</option>{/each}
+            {#each TEMPLATES as tp (tp.name)}<option value={'new:' + tp.name}>{t('book.newFromTemplate', { name: t(tp.label) })}</option>{/each}
+          </select>
+        </div>
+        <div class="add-row" style:--k="var(--k-image)">
+          <select
+            class="tinted"
+            bind:value={addImage}
+            onchange={() => {
+              if (addImage) add({ image: rel(addImage) });
+              addImage = '';
+            }}>
+            <option value="">{t('book.addImage')}</option>
+            {#each files.filter(isImage) as f (f)}<option value={f}>{f}</option>{/each}
+          </select>
+          <button
+            class="tinted"
+            onclick={async () => {
+              const p = await importImage(workspace, files);
+              if (!p) return;
+              onfileschanged();
+              add({ image: rel(p) });
+            }}>{t('book.imageFromComputer')}</button>
+        </div>
+        <div class="add-row">
+          <button class="tinted" style:--k="var(--k-toc)" onclick={() => add({ toc: t('book.indexTitle') })}>{t('book.addIndex')}</button>
+          <button class="tinted" style:--k="var(--k-blank)" onclick={() => add('blank')}>{t('book.addBlank')}</button>
+        </div>
       </div>
       {#if built?.warnings.length}
         <ul class="warnings">{#each built.warnings as w (w)}<li>{w}</li>{/each}</ul>
@@ -310,14 +394,15 @@
   .edit-pane {
     border-right: 1px solid var(--line);
     overflow: auto;
-    padding: 12px 16px;
-    gap: 12px;
+    padding: 14px 16px 24px;
+    gap: 14px;
   }
   .title {
     font-size: 20px;
     font-weight: 600;
     width: 100%;
     box-sizing: border-box;
+    padding: 6px 10px;
   }
   input,
   select {
@@ -331,57 +416,178 @@
   input[type='number'] {
     width: 4.5em;
   }
-  .grid {
-    margin-top: 8px;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 6px 16px;
+  /* Section titles: settings, contents, add. */
+  .heading {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .summary {
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  /* Settings, in two groups; foldable. */
+  .settings {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--sidebar);
+  }
+  .settings summary {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 9px 12px;
+    cursor: pointer;
+    list-style: none;
+  }
+  .settings summary::-webkit-details-marker {
+    display: none;
+  }
+  .settings summary::before {
+    content: '';
+    align-self: center;
+    width: 5px;
+    height: 5px;
+    margin: 0 2px;
+    border-right: 1.5px solid var(--muted);
+    border-bottom: 1.5px solid var(--muted);
+    transform: rotate(-45deg);
+    transition: transform 0.15s;
+  }
+  .settings[open] summary::before {
+    transform: rotate(45deg);
+  }
+  .settings[open] .summary {
+    display: none;
+  }
+  .groups {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 0 12px 12px;
+  }
+  /* Controls flow in rows, at their natural width. */
+  fieldset {
+    margin: 0;
+    padding: 8px 12px 12px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--bg);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 20px;
     font-size: 13px;
+    min-width: 0;
+  }
+  legend {
+    padding: 0 4px;
+    font-weight: 600;
+    font-size: 12px;
+  }
+  .row {
+    gap: 6px;
+    min-width: 0;
+  }
+  .row span {
+    color: var(--muted);
+  }
+  .row select {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .check {
+    gap: 6px;
+  }
+
+  /* Contents: one card per item, striped with the hue of its kind. */
+  .contents-head {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-top: 4px;
   }
   .contents {
+    position: relative; /* item offsets for dragging (sortable.ts) */
     list-style: none;
     padding: 0;
     margin: 0;
-    border-top: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
   }
   .contents li {
     display: flex;
     gap: 8px;
     align-items: center;
-    padding: 4px 0;
-    border-bottom: 1px solid var(--line);
+    min-height: 40px;
+    padding: 4px 8px 4px 2px;
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--k);
+    border-radius: 6px;
+    background: var(--bg);
     font-size: 14px;
   }
+  .contents li:hover {
+    background: color-mix(in srgb, var(--k) 5%, var(--bg));
+  }
+  .contents:global(.sorting) > li:not(:global(.dragging)) {
+    transition: transform 0.15s ease;
+  }
+  .contents li:global(.dragging) {
+    position: relative;
+    z-index: 1;
+    background: color-mix(in srgb, var(--k) 10%, var(--bg));
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+  }
   .page {
-    width: 2em;
+    flex: none;
+    width: 1.8em;
     text-align: right;
     color: var(--muted);
+    font-size: 12px;
     font-variant-numeric: tabular-nums;
+  }
+  .kind {
+    flex: none;
+    padding: 1px 7px;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--k) 16%, var(--bg));
+    color: color-mix(in srgb, var(--k) 70%, var(--fg));
+    font-size: 11px;
+    font-weight: 600;
   }
   .label {
     flex: 1;
     min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
-  .opts,
-  .actions {
-    display: flex;
-    gap: 2px;
-    align-items: center;
+  .plain {
+    color: var(--muted);
   }
-  .actions button {
+  .opt {
+    flex: none;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .remove {
+    flex: none;
     border: none;
     background: none;
     cursor: pointer;
     color: var(--muted);
-    padding: 2px 5px;
-    border-radius: 3px;
+    padding: 4px 6px;
+    border-radius: 4px;
   }
-  .actions button:hover {
+  .remove:hover {
     background: var(--chip-hover);
     color: var(--fg);
-  }
-  .opts select {
-    font-size: 12px;
   }
   .link {
     background: none;
@@ -391,23 +597,54 @@
     cursor: pointer;
     font: inherit;
     text-align: left;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .link:hover {
     color: var(--accent);
     text-decoration: underline;
   }
   .inline {
-    width: 10em;
+    width: 100%;
+    max-width: 16em;
+    box-sizing: border-box;
   }
-  .small {
-    font-size: 12px;
+  .empty {
+    margin: 0;
+    padding: 16px;
+    border: 1px dashed var(--line);
+    border-radius: 6px;
     color: var(--muted);
-    margin-left: 8px;
+    font-size: 13px;
+    text-align: center;
   }
+
+  /* Adding: one row per kind, in its hue. */
   .add {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 4px;
+  }
+  .add-row {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
+  }
+  .add-row select {
+    flex: 1 1 14em;
+    min-width: 0;
+  }
+  select.tinted {
+    padding: 4px 8px;
+    border-radius: 5px;
+    border-color: color-mix(in srgb, var(--k) 55%, var(--line));
+    background-color: color-mix(in srgb, var(--k) 8%, var(--bg));
+    cursor: pointer;
+  }
+  .add .tinted {
+    min-height: 30px;
   }
   .warnings {
     color: #b3261e;
@@ -450,15 +687,9 @@
     }
   }
   @container main (max-width: 520px) {
-    .grid {
-      grid-template-columns: minmax(0, 1fr);
-    }
-    .grid label {
-      min-width: 0;
-    }
-    .grid select {
-      min-width: 0;
-      max-width: 100%;
+    .kind,
+    .page {
+      display: none;
     }
   }
 </style>

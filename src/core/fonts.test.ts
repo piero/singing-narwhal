@@ -96,7 +96,7 @@ describe('installed fonts in the registry', () => {
     const { reg, loads } = registry();
     const fams = reg.families();
     expect(fams.at(-1)).toEqual({ family: 'Crimson', label: 'Crimson', installed: true });
-    expect(fams.find((f) => f.family === 'LiberationSans')).toMatchObject({ label: 'LiberationSans', installed: false });
+    expect(fams.find((f) => f.family === 'LiberationSans')).toMatchObject({ label: 'Liberation Sans', installed: false });
     expect(loads()).toBe(0);
   });
 

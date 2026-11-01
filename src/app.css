@@ -21,6 +21,11 @@
   --k-lines: #e09a2f;
   --k-space: #7b8494;
   --k-rule: #1f9aa8;
+  /* Kinds of songbook contents (--k-image as above). */
+  --k-song: #3a7fc8;
+  --k-page: #8b5cd6;
+  --k-toc: #e09a2f;
+  --k-blank: #7b8494;
   --chip-hover: rgba(0, 0, 0, 0.06);
   --line-focus: rgba(47, 111, 222, 0.05);
   color-scheme: light dark;
@@ -49,6 +54,10 @@
     --k-lines: #f0b257;
     --k-space: #9aa3b2;
     --k-rule: #4cc4d2;
+    --k-song: #6aa8ee;
+    --k-page: #b292f5;
+    --k-toc: #f0b257;
+    --k-blank: #9aa3b2;
     --chip-hover: rgba(255, 255, 255, 0.08);
     --line-focus: rgba(75, 139, 245, 0.08);
   }

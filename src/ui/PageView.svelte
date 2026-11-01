@@ -1,7 +1,8 @@
 <script lang="ts">
   // Editor for pages (.page.yaml): a list of elements with their
   // settings, a YAML source view and a live preview.
-  import { onDestroy } from 'svelte';
+  import { onDestroy, tick } from 'svelte';
+  import { SvelteSet } from 'svelte/reactivity';
   import { debouncedSaver } from './saves';
   import { fontFamily, fontVariant, type FontRegistry } from '../core/fonts';
   import { imageSize } from '../core/images';
@@ -19,8 +20,10 @@
   } from '../core/pages';
   import { ImageUrls } from './assets.svelte';
   import { t, type Key } from './i18n.svelte';
+  import DragHandle from './DragHandle.svelte';
   import FontSelect from './FontSelect.svelte';
   import Preview from './Preview.svelte';
+  import { sortable } from './sortable';
   import { importImage, isImage, type Workspace } from './workspace';
 
   let {
@@ -103,11 +106,40 @@
   ];
   const kindLabel = (k: ElementKind) => t(KINDS.find((x) => x.kind === k)!.label);
 
-  function move(i: number, d: number) {
+  function reorder(from: number, to: number) {
     const els = tpl!.elements;
-    const j = i + d;
-    if (j < 0 || j >= els.length) return;
-    [els[i], els[j]] = [els[j], els[i]];
+    const [e] = els.splice(from, 1);
+    els.splice(to, 0, e);
+  }
+
+  // Cards can be folded to their header (with a one-line summary), to see a long
+  // page at a glance. Kept by element, so a card stays folded when it is moved.
+  const collapsed = new SvelteSet<PageElement>();
+  function toggle(e: PageElement) {
+    if (collapsed.has(e)) collapsed.delete(e);
+    else collapsed.add(e);
+  }
+  const allCollapsed = $derived(!!tpl?.elements.length && tpl.elements.every((e) => collapsed.has(e)));
+  function toggleAll() {
+    if (allCollapsed) collapsed.clear();
+    else for (const e of tpl!.elements) collapsed.add(e);
+  }
+  function summary(e: PageElement): string {
+    if ('text' in e) return e.text.split('\n').find((l) => l.trim()) ?? t('page.emptyText');
+    if ('image' in e) return e.image ? e.image.split('/').pop()! : t('page.noImage');
+    if ('box' in e) return e.box || t('page.emptyText');
+    if ('lines' in e) return e.lines === 'fill' ? t('page.fill') : `× ${e.lines}`;
+    if ('space' in e) return e.space === 'fill' ? t('page.fill') : `${e.space} pt`;
+    return '';
+  }
+
+  let list = $state<HTMLOListElement>();
+  async function addElement(make: () => PageElement) {
+    tpl!.elements.push(make());
+    await tick();
+    const card = list?.lastElementChild as HTMLElement | null;
+    card?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    (card?.querySelector('.fields input, .fields textarea, .fields select') as HTMLElement | null)?.focus({ preventScroll: true });
   }
 
   // Font picker: family + bold/italic, stored as a font id.
@@ -117,10 +149,6 @@
   function setFont(e: Styled, family: string, bold: boolean, italic: boolean) {
     e.font = fontVariant(fonts, family, bold, italic);
   }
-
-  // Heights: a number or "fill".
-  type Sized = { height?: number | 'fill' };
-  const fills = (e: Sized) => e.height === undefined || e.height === 'fill';
 
   let source = $state('');
   function showSource() {
@@ -137,18 +165,21 @@
   }
 </script>
 
+<!-- Fields: a caption above each control. -->
 {#snippet fontPicker(e: Styled)}
-  <label>
-    {t('page.font')}
-    <FontSelect {fonts} value={fontFamily(e.font ?? DEFAULT_STYLE.lyrics.font)} onchange={(f) => setFont(e, f, isBold(e), isItalic(e))} />
-  </label>
-  <button class="toggle b" class:on={isBold(e)} onclick={() => setFont(e, fontFamily(e.font ?? DEFAULT_STYLE.lyrics.font), !isBold(e), isItalic(e))}>B</button>
-  <button class="toggle i" class:on={isItalic(e)} onclick={() => setFont(e, fontFamily(e.font ?? DEFAULT_STYLE.lyrics.font), isBold(e), !isItalic(e))}>I</button>
+  <div class="field font">
+    <span class="caption">{t('page.font')}</span>
+    <div class="controls">
+      <FontSelect {fonts} value={fontFamily(e.font ?? DEFAULT_STYLE.lyrics.font)} onchange={(f) => setFont(e, f, isBold(e), isItalic(e))} />
+      <button class="toggle b" class:on={isBold(e)} title="Bold" aria-pressed={isBold(e)} onclick={() => setFont(e, fontFamily(e.font ?? DEFAULT_STYLE.lyrics.font), !isBold(e), isItalic(e))}>B</button>
+      <button class="toggle i" class:on={isItalic(e)} title="Italic" aria-pressed={isItalic(e)} onclick={() => setFont(e, fontFamily(e.font ?? DEFAULT_STYLE.lyrics.font), isBold(e), !isItalic(e))}>I</button>
+    </div>
+  </div>
 {/snippet}
 
 {#snippet alignPicker(e: { align?: 'left' | 'center' | 'right' })}
-  <label>
-    {t('page.align')}
+  <label class="field">
+    <span class="caption">{t('page.align')}</span>
     <select bind:value={e.align}>
       <option value={undefined}>{t('page.left')}</option>
       <option value="center">{t('page.center')}</option>
@@ -157,12 +188,29 @@
   </label>
 {/snippet}
 
-{#snippet heightPicker(e: Sized)}
-  <label>
-    {t('page.height')}
-    <input type="number" min="0" disabled={fills(e)} value={fills(e) ? '' : e.height} oninput={(ev) => (e.height = Number(ev.currentTarget.value) || 0)} />
+{#snippet number(caption: string, value: number | undefined, set: (v: number | undefined) => void, attrs: { min?: number; max?: number; step?: number; placeholder?: string } = {})}
+  <label class="field">
+    <span class="caption">{caption}</span>
+    <input type="number" {...attrs} value={value ?? ''} oninput={(ev) => set(ev.currentTarget.value === '' ? undefined : Number(ev.currentTarget.value))} />
   </label>
-  <label><input type="checkbox" checked={fills(e)} onchange={(ev) => (e.height = ev.currentTarget.checked ? 'fill' : 80)} /> {t('page.fill')}</label>
+{/snippet}
+
+<!-- A size in points, or "fill" to share the space left on the page. -->
+{#snippet fillable(caption: string, value: number | 'fill' | undefined, set: (v: number | 'fill') => void, fallback: number, min = 0)}
+  <div class="field">
+    <span class="caption">{caption}</span>
+    <div class="controls">
+      <input
+        type="number"
+        {min}
+        disabled={value === 'fill' || value === undefined}
+        value={value === 'fill' || value === undefined ? '' : value}
+        oninput={(ev) => set(Number(ev.currentTarget.value) || min)} />
+      <label class="check"
+        ><input type="checkbox" checked={value === 'fill' || value === undefined} onchange={(ev) => set(ev.currentTarget.checked ? 'fill' : fallback)} />
+        {t('page.fill')}</label>
+    </div>
+  </div>
 {/snippet}
 
 {#if tpl}
@@ -173,75 +221,98 @@
         <button class:active={mode === 'source'} onclick={showSource}>{t('page.source')}</button>
       </div>
       {#if mode === 'elements'}
-        <ol class="elements">
+        {#if tpl.elements.length}
+          <div class="list-head">
+            <span class="summary">{t('page.elementCount', { n: tpl.elements.length })}</span>
+            <button class="link" onclick={toggleAll}>{allCollapsed ? t('page.expandAll') : t('page.collapseAll')}</button>
+          </div>
+        {/if}
+        <ol class="elements" bind:this={list} use:sortable={{ onmove: reorder }}>
           {#each tpl.elements as e, i (i)}
             {@const kind = elementKind(e)}
+            {@const folded = collapsed.has(e)}
             <li
               style:--k="var(--k-{kind})"
+              class:folded
               onpointerenter={() => (hovered = i)}
               onpointerleave={() => (hovered = null)}
               onfocusin={() => (hovered = i)}
               onfocusout={() => (hovered = null)}
             >
               <header>
-                <strong>{kindLabel(kind)}</strong>
-                <span class="actions">
-                  <button title={t('book.moveUp')} onclick={() => move(i, -1)}>↑</button>
-                  <button title={t('book.moveDown')} onclick={() => move(i, 1)}>↓</button>
-                  <button title={t('book.remove')} onclick={() => tpl!.elements.splice(i, 1)}>✕</button>
-                </span>
+                <DragHandle />
+                <button class="fold" aria-expanded={!folded} title={folded ? t('page.expand') : t('page.collapse')} onclick={() => toggle(e)}>
+                  <span class="chevron" aria-hidden="true"></span>
+                  <strong>{kindLabel(kind)}</strong>
+                  {#if folded}<span class="gist">{summary(e)}</span>{/if}
+                </button>
+                <button class="remove" title={t('book.remove')} aria-label={t('book.remove')} onclick={() => tpl!.elements.splice(i, 1)}>✕</button>
               </header>
-              <div class="fields">
-                {#if 'text' in e}
-                  <textarea rows={Math.max(2, e.text.split('\n').length)} bind:value={e.text}></textarea>
-                  {@render fontPicker(e)}
-                  <label>{t('page.size')} <input type="number" min="4" step="0.5" bind:value={e.size} /></label>
-                  {@render alignPicker(e)}
-                  <label>{t('page.lineHeight')} <input type="number" min="0.8" step="0.05" bind:value={e.line_height} placeholder="1.25" /></label>
-                  <label>{t('page.indent')} <input type="number" min="0" bind:value={e.indent} placeholder="0" /></label>
-                {:else if 'image' in e}
-                  <select bind:value={e.image}>
-                    <option value="">{t('page.chooseImage')}</option>
-                    {#each files.filter(isImage) as f (f)}<option value={f}>{f}</option>{/each}
-                  </select>
-                  <button
-                    class="pick"
-                    onclick={async () => {
-                      const p = await importImage(workspace, files);
-                      if (!p) return;
-                      onfileschanged?.();
-                      e.image = p;
-                    }}>{t('page.fromComputer')}</button>
-                  {@render heightPicker(e)}
-                  <label>{t('page.width')} <input type="number" min="5" max="100" value={Math.round((e.width ?? 1) * 100)} oninput={(ev) => (e.width = Number(ev.currentTarget.value) / 100)} /></label>
-                  {@render alignPicker(e)}
-                {:else if 'box' in e}
-                  <label class="wide">{t('page.label')} <input bind:value={e.box} /></label>
-                  {@render heightPicker(e)}
-                  <label>{t('page.radius')} <input type="number" min="0" bind:value={e.radius} /></label>
-                  {@render fontPicker(e)}
-                  <label>{t('page.size')} <input type="number" min="4" step="0.5" bind:value={e.size} placeholder="13" /></label>
-                  {@render alignPicker(e)}
-                {:else if 'lines' in e}
-                  <label>{t('page.count')} <input type="number" min="1" disabled={e.lines === 'fill'} value={e.lines === 'fill' ? '' : e.lines} oninput={(ev) => (e.lines = Number(ev.currentTarget.value) || 1)} /></label>
-                  <label><input type="checkbox" checked={e.lines === 'fill'} onchange={(ev) => (e.lines = ev.currentTarget.checked ? 'fill' : 10)} /> {t('page.fill')}</label>
-                  <label>{t('page.spacing')} <input type="number" min="8" bind:value={e.spacing} placeholder="20" /></label>
-                {:else if 'space' in e}
-                  <label>{t('page.height')} <input type="number" min="0" disabled={e.space === 'fill'} value={e.space === 'fill' ? '' : e.space} oninput={(ev) => (e.space = Number(ev.currentTarget.value) || 0)} /></label>
-                  <label><input type="checkbox" checked={e.space === 'fill'} onchange={(ev) => (e.space = ev.currentTarget.checked ? 'fill' : 20)} /> {t('page.fill')}</label>
-                {/if}
-                {#if !('space' in e)}
-                  <label>{t('page.marginTop')} <input type="number" min="0" bind:value={e.margin} placeholder="0" /></label>
-                {/if}
-              </div>
+              {#if !folded}
+                <div class="fields">
+                  {#if 'text' in e}
+                    <textarea class="wide" rows={Math.max(2, e.text.split('\n').length)} bind:value={e.text}></textarea>
+                    {@render fontPicker(e)}
+                    {@render number(t('page.size'), e.size, (v) => (e.size = v), { min: 4, step: 0.5, placeholder: '12' })}
+                    {@render alignPicker(e)}
+                    {@render number(t('page.lineHeight'), e.line_height, (v) => (e.line_height = v), { min: 0.8, step: 0.05, placeholder: '1.25' })}
+                    {@render number(t('page.indent'), e.indent, (v) => (e.indent = v), { min: 0, placeholder: '0' })}
+                  {:else if 'image' in e}
+                    <div class="field wide">
+                      <span class="caption">{t('page.image')}</span>
+                      <div class="controls">
+                        <select class="grow" bind:value={e.image}>
+                          <option value="">{t('page.chooseImage')}</option>
+                          {#each files.filter(isImage) as f (f)}<option value={f}>{f}</option>{/each}
+                        </select>
+                        <button
+                          class="pick"
+                          onclick={async () => {
+                            const p = await importImage(workspace, files);
+                            if (!p) return;
+                            onfileschanged?.();
+                            e.image = p;
+                          }}>{t('page.fromComputer')}</button>
+                      </div>
+                    </div>
+                    {@render fillable(t('page.height'), e.height, (v) => (e.height = v), 80)}
+                    <label class="field">
+                      <span class="caption">{t('page.width')}</span>
+                      <input type="number" min="5" max="100" value={Math.round((e.width ?? 1) * 100)} oninput={(ev) => (e.width = Number(ev.currentTarget.value) / 100)} />
+                    </label>
+                    {@render alignPicker(e)}
+                  {:else if 'box' in e}
+                    <label class="field wide">
+                      <span class="caption">{t('page.label')}</span>
+                      <input bind:value={e.box} />
+                    </label>
+                    {@render fillable(t('page.height'), e.height, (v) => (e.height = v), 80)}
+                    {@render number(t('page.radius'), e.radius, (v) => (e.radius = v), { min: 0, placeholder: '8' })}
+                    {@render fontPicker(e)}
+                    {@render number(t('page.size'), e.size, (v) => (e.size = v), { min: 4, step: 0.5, placeholder: '13' })}
+                    {@render alignPicker(e)}
+                  {:else if 'lines' in e}
+                    {@render fillable(t('page.count'), e.lines, (v) => (e.lines = v), 10, 1)}
+                    {@render number(t('page.spacing'), e.spacing, (v) => (e.spacing = v), { min: 8, placeholder: '20' })}
+                  {:else if 'space' in e}
+                    {@render fillable(t('page.height'), e.space, (v) => (e.space = v), 20)}
+                  {/if}
+                  {#if !('space' in e)}
+                    {@render number(t('page.marginTop'), e.margin, (v) => (e.margin = v), { min: 0, placeholder: '0' })}
+                  {/if}
+                </div>
+              {/if}
             </li>
           {/each}
         </ol>
+        {#if !tpl.elements.length}<p class="empty">{t('page.emptyPage')}</p>{/if}
         <div class="add">
-          <span>{t('page.add')}</span>
-          {#each KINDS as k (k.kind)}
-            <button class="tinted" style:--k="var(--k-{k.kind})" onclick={() => tpl!.elements.push(k.make())}>{t(k.label)}</button>
-          {/each}
+          <span class="heading">{t('list.add')}</span>
+          <div class="add-row">
+            {#each KINDS as k (k.kind)}
+              <button class="tinted" style:--k="var(--k-{k.kind})" onclick={() => addElement(k.make)}>+ {t(k.label)}</button>
+            {/each}
+          </div>
         </div>
         <p class="help">{t('page.placeholders')}</p>
       {:else}
@@ -297,7 +368,30 @@
     color: var(--fg);
     border-bottom-color: var(--accent);
   }
+  .list-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .summary {
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .link {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--muted);
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .link:hover {
+    color: var(--accent);
+    text-decoration: underline;
+  }
   .elements {
+    position: relative; /* item offsets for dragging (sortable.ts) */
     list-style: none;
     padding: 0;
     margin: 0;
@@ -311,39 +405,122 @@
     border: 1px solid var(--line);
     border-left: 4px solid var(--k);
     border-radius: 6px;
-    padding: 0 10px 8px;
+    background: var(--bg);
+  }
+  .elements:global(.sorting) > li:not(:global(.dragging)) {
+    transition: transform 0.15s ease;
+  }
+  .elements li:global(.dragging) {
+    position: relative;
+    z-index: 1;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
   }
   header {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    margin: 0 -10px 8px;
-    padding: 5px 10px;
+    gap: 4px;
+    min-height: 34px;
+    padding: 0 6px 0 2px;
     border-radius: 0 5px 0 0;
     background: color-mix(in srgb, var(--k) 12%, var(--bg));
   }
-  .actions button {
+  li.folded header {
+    border-radius: 0 5px 5px 0;
+  }
+  .fold {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    align-self: stretch;
+    padding: 8px 4px;
+    border: none;
+    background: none;
+    color: var(--fg);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .chevron {
+    flex: none;
+    align-self: center;
+    width: 5px;
+    height: 5px;
+    margin: 0 3px;
+    border-right: 1.5px solid var(--muted);
+    border-bottom: 1.5px solid var(--muted);
+    transform: rotate(-45deg);
+    transition: transform 0.15s;
+  }
+  li:not(.folded) .chevron {
+    transform: rotate(45deg);
+  }
+  .gist {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .remove {
+    flex: none;
     border: none;
     background: none;
     cursor: pointer;
     color: var(--muted);
+    padding: 4px 6px;
+    border-radius: 4px;
   }
+  .remove:hover {
+    background: var(--chip-hover);
+    color: var(--fg);
+  }
+
+  /* Fields: caption above, laid out in rows that wrap. */
   .fields {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px 12px;
-    align-items: center;
+    gap: 12px 16px;
+    align-items: flex-start;
+    padding: 12px 12px 14px;
     font-size: 13px;
   }
-  .fields textarea {
-    width: 100%;
-    font: 14px/1.4 inherit;
+  .field {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+    min-width: 0;
+  }
+  .caption {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+  }
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 28px;
+  }
+  .check {
+    gap: 4px;
+    white-space: nowrap;
   }
   .wide {
     flex: 1 1 100%;
   }
-  .wide input {
+  .grow {
     flex: 1;
+    min-width: 0;
+  }
+  .fields textarea {
+    width: 100%;
+    box-sizing: border-box;
+    font: 14px/1.4 inherit;
+    resize: vertical;
   }
   input,
   select,
@@ -351,20 +528,28 @@
   textarea,
   .pick {
     font: inherit;
-    padding: 3px 6px;
+    padding: 4px 6px;
     border: 1px solid var(--line);
     border-radius: 4px;
     background: var(--bg);
     color: var(--fg);
   }
+  .fields :global(select) {
+    max-width: 100%;
+  }
   .pick {
     cursor: pointer;
+    white-space: nowrap;
   }
   input[type='number'] {
-    width: 4.5em;
+    width: 5em;
+  }
+  input:disabled {
+    opacity: 0.5;
   }
   .toggle {
-    width: 26px;
+    width: 28px;
+    align-self: stretch;
     border: 1px solid var(--line);
     background: var(--bg);
     color: var(--fg);
@@ -382,13 +567,35 @@
     color: var(--on-accent);
     border-color: var(--accent);
   }
+  .empty {
+    margin: 0;
+    padding: 16px;
+    border: 1px dashed var(--line);
+    border-radius: 6px;
+    color: var(--muted);
+    font-size: 13px;
+    text-align: center;
+  }
   .add {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 16px;
+  }
+  .heading {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .add-row {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
-    align-items: center;
-    margin-top: 12px;
-    font-size: 13px;
+  }
+  .add .tinted {
+    min-height: 30px;
   }
   .help {
     font-size: 12px;

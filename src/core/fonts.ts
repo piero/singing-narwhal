@@ -182,7 +182,7 @@ export class FontRegistry {
       all.set(fam, (all.get(fam) ?? true) && s.installed.has(id));
     }
     return [...all]
-      .map(([family, installed]) => ({ family, label: s.labels.get(family) ?? family, installed }))
+      .map(([family, installed]) => ({ family, label: s.labels.get(family) ?? spaced(family), installed }))
       .sort((a, b) => Number(a.installed) - Number(b.installed) || a.label.localeCompare(b.label));
   }
 
@@ -216,6 +216,9 @@ export class FontRegistry {
     return (f.ascent / f.unitsPerEm) * size;
   }
 }
+
+/** "LiberationSans" → "Liberation Sans": family ids of font files are written without spaces. */
+const spaced = (family: string) => family.replace(/(\p{Ll})(\p{Lu})/gu, '$1 $2');
 
 const STYLE_SUFFIX = /-(Regular|Bold|Italic|BoldItalic|Oblique|BoldOblique)$/;
 
