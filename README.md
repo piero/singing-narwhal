@@ -26,9 +26,14 @@ Songs with chords, laid out for printing, assembled into songbooks.
 | **Website in Chrome or Edge** | a folder on your computer that you choose | the same, without installing anything |
 | **Website in Safari or Firefox** | inside the browser, until you download a backup | trying it out, quick edits |
 
-Download the desktop app from the [releases page](https://github.com/piero/singing-narwhal/releases):
-the `.dmg` for macOS (Apple Silicon and Intel), the `.zip` for Windows. The app isn't
-signed yet, so the first time macOS refuses to open it: go to System Settings → Privacy &
+Download the latest desktop app
+[![latest release](https://img.shields.io/github/v/release/piero/singing-narwhal?label=)](https://github.com/piero/singing-narwhal/releases/latest):
+
+- [**macOS**](https://github.com/piero/singing-narwhal/releases/latest/download/Singing-Narwhal-macos.dmg) (Apple Silicon and Intel)
+- [**Windows**](https://github.com/piero/singing-narwhal/releases/latest/download/Singing-Narwhal-windows.zip) (beta)
+
+Older versions and what changed in each are on the
+[releases page](https://github.com/piero/singing-narwhal/releases). The app isn't signed yet, so the first time macOS refuses to open it: go to System Settings → Privacy &
 Security and click **Open Anyway**. On Windows, unzip it, run `narwhal.exe` and, if
 warned, click **More info → Run anyway**.
 

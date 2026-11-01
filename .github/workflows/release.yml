@@ -41,14 +41,16 @@ jobs:
         run: curl -fsSL https://tinyjs.app/install | sh
       # One app for Apple Silicon and Intel Macs; ad-hoc signed (no Developer ID).
       - run: ~/.tinyjs/tinyjs build --universal --dmg
+      # The file names carry no version, so that the README can link to
+      # releases/latest/download/<name>.
       - name: Name the disk image
         run: |
           version="$(node -p "require('./package.json').version")"
-          mv dist/narwhal-"$version".dmg "Singing-Narwhal-$version-macos.dmg"
+          mv dist/narwhal-"$version".dmg Singing-Narwhal-macos.dmg
       - uses: actions/upload-artifact@v4
         with:
           name: macos
-          path: Singing-Narwhal-*-macos.dmg
+          path: Singing-Narwhal-macos.dmg
           if-no-files-found: error
 
   windows:
@@ -73,14 +75,13 @@ jobs:
       # launcher.exe, which must stay next to it.
       - name: Zip the app
         run: |
-          $version = node -p "require('./package.json').version"
           New-Item -ItemType Directory 'Singing Narwhal' | Out-Null
           Copy-Item dist/narwhal.exe, dist/launcher.exe 'Singing Narwhal'
-          Compress-Archive -Path 'Singing Narwhal' -DestinationPath "Singing-Narwhal-$version-windows.zip"
+          Compress-Archive -Path 'Singing Narwhal' -DestinationPath Singing-Narwhal-windows.zip
       - uses: actions/upload-artifact@v4
         with:
           name: windows
-          path: Singing-Narwhal-*-windows.zip
+          path: Singing-Narwhal-windows.zip
           if-no-files-found: error
 
   release:
@@ -100,11 +101,11 @@ jobs:
           cat > notes.md <<'EOF'
           ## Download
 
-          - **macOS** (Apple Silicon and Intel): `Singing-Narwhal-…-macos.dmg`. Open it and drag
+          - **macOS** (Apple Silicon and Intel): `Singing-Narwhal-macos.dmg`. Open it and drag
             Singing Narwhal to Applications. The app isn't signed by Apple, so the first time
             macOS refuses to open it: go to System Settings → Privacy & Security and click
             **Open Anyway**.
-          - **Windows** (beta): `Singing-Narwhal-…-windows.zip`. Unzip it anywhere and run
+          - **Windows** (beta): `Singing-Narwhal-windows.zip`. Unzip it anywhere and run
             `narwhal.exe` (keep `launcher.exe` next to it). Windows may warn that it protected
             your PC: click **More info → Run anyway**. Needs the WebView2 runtime, included in
             Windows 11.

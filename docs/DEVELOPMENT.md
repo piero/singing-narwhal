@@ -73,10 +73,13 @@ Actions. It checks that the tag matches `package.json`, runs the type check and 
 builds the desktop app on GitHub's macOS and Windows machines and publishes a GitHub
 release with:
 
-- `Singing-Narwhal-X.Y.Z-macos.dmg`: one app for Apple Silicon and Intel Macs
+- `Singing-Narwhal-macos.dmg`: one app for Apple Silicon and Intel Macs
   (`tinyjs build --universal --dmg`);
-- `Singing-Narwhal-X.Y.Z-windows.zip`: the portable Windows app (`narwhal.exe` and
+- `Singing-Narwhal-windows.zip`: the portable Windows app (`narwhal.exe` and
   `launcher.exe`, from `tinyjs build`).
+
+The names carry no version (the release title does), so the download links in the README,
+`releases/latest/download/<name>`, always fetch the newest release.
 
 Both are unsigned, so macOS asks users to allow the app in System Settings → Privacy &
 Security, and Windows shows a SmartScreen warning; the release notes explain both. Signing
