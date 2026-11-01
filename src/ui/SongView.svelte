@@ -8,6 +8,7 @@
   import { convertNotation, songKey, songNotation, transposeSong } from '../core/transform';
   import FontSelect from './FontSelect.svelte';
   import Preview from './Preview.svelte';
+  import Splitter from './Splitter.svelte';
   import VisualEditor from './VisualEditor.svelte';
   import { saveFile, type Workspace } from './workspace';
   import { saveSettings, songSettings } from './settings.svelte';
@@ -187,6 +188,8 @@
     </div>
   </section>
 
+  <Splitter name="song" min={[380, 380]} />
+
   <section class="preview-pane">
     <div class="toolbar">
       <label>
@@ -245,7 +248,7 @@
 <style>
   .song-view {
     display: grid;
-    grid-template-columns: minmax(380px, 1fr) minmax(380px, 1fr);
+    grid-template-columns: minmax(380px, var(--edit, 1fr)) 0 minmax(380px, var(--preview, 1fr));
     height: 100%;
     min-height: 0;
   }

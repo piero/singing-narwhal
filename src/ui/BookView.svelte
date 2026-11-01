@@ -9,6 +9,7 @@
   import { ImageUrls } from './assets.svelte';
   import { i18n, t, type Key } from './i18n.svelte';
   import Preview from './Preview.svelte';
+  import Splitter from './Splitter.svelte';
   import { sortable } from './sortable';
   import DragHandle from './DragHandle.svelte';
   import { importImage, isImage, isPage, isSong, saveFile, zipSongbook, type Workspace } from './workspace';
@@ -362,6 +363,8 @@
       {/if}
     </section>
 
+    <Splitter name="book" min={[420, 380]} />
+
     <section class="preview-pane">
       <div class="toolbar">
         <label><input type="radio" bind:group={view} value="sheets" /> {t('book.sheets')}</label>
@@ -381,7 +384,7 @@
 <style>
   .book-view {
     display: grid;
-    grid-template-columns: minmax(420px, 1fr) minmax(380px, 1.2fr);
+    grid-template-columns: minmax(420px, var(--edit, 1fr)) 0 minmax(380px, var(--preview, 1.2fr));
     height: 100%;
     min-height: 0;
   }

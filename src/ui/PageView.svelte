@@ -23,6 +23,7 @@
   import DragHandle from './DragHandle.svelte';
   import FontSelect from './FontSelect.svelte';
   import Preview from './Preview.svelte';
+  import Splitter from './Splitter.svelte';
   import { sortable } from './sortable';
   import { importImage, isImage, type Workspace } from './workspace';
 
@@ -319,6 +320,7 @@
         <textarea class="source" value={source} oninput={(e) => editSource(e.currentTarget.value)} spellcheck="false"></textarea>
       {/if}
     </section>
+    <Splitter name="page" min={[420, 380]} />
     <section class="preview-pane">
       <div class="toolbar">
         <label>{t('opt.page')} <select bind:value={page}>{#each Object.keys(PAGE_SIZES) as p (p)}<option value={p}>{p}</option>{/each}</select></label>
@@ -334,7 +336,7 @@
 <style>
   .page-view {
     display: grid;
-    grid-template-columns: minmax(420px, 1fr) minmax(380px, 1fr);
+    grid-template-columns: minmax(420px, var(--edit, 1fr)) 0 minmax(380px, var(--preview, 1fr));
     height: 100%;
     min-height: 0;
   }
