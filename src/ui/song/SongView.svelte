@@ -483,6 +483,9 @@
   .diagrams {
     font-size: 13px;
     min-width: 0;
+    border: 1px solid var(--tint-line);
+    border-radius: 8px;
+    background: var(--tint);
   }
   .summary {
     display: flex;
@@ -490,7 +493,7 @@
     gap: 6px;
     width: 100%;
     min-width: 0;
-    padding: 2px 0;
+    padding: 5px 10px;
     border: none;
     background: none;
     color: var(--fg);
@@ -500,7 +503,7 @@
   }
   .summary .chevron {
     flex: none;
-    color: var(--muted);
+    color: var(--accent);
     font-size: 11px;
     transition: transform 0.15s;
   }
@@ -509,7 +512,8 @@
   }
   .summary .caption {
     flex: none;
-    color: var(--muted);
+    color: var(--accent);
+    font-weight: 600;
   }
   .summary .names {
     min-width: 0;
@@ -523,11 +527,8 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
-    margin: 6px 0 2px 17px;
-    padding: 8px 10px;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    background: var(--sidebar);
+    padding: 8px 10px 10px 27px;
+    border-top: 1px solid var(--tint-line);
   }
   .chips {
     display: flex;
