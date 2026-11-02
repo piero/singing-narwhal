@@ -277,9 +277,12 @@
     <div class="editor-scroll">
       {#if mode === 'visual'}
         <VisualEditor {doc} onchange={change} {focusRequest} />
-        <p class="help">
-          {t('song.help', { chordExample: '[Am]' })}
-        </p>
+        <dl class="help">
+          {#each [['help.addChord', 'help.addChordHow'], ['help.moveChord', 'help.moveChordHow'], ['help.editChord', 'help.editChordHow'], ['help.sections', 'help.sectionsHow'], ['help.lines', 'help.linesHow']] as const as [what, how] (what)}
+            <dt>{t(what)}</dt>
+            <dd>{t(how, { chordExample: '[Am]' })}</dd>
+          {/each}
+        </dl>
       {:else}
         <textarea class="source" value={source} oninput={(e) => change(parseSong(e.currentTarget.value))} spellcheck="false"></textarea>
       {/if}
@@ -453,10 +456,20 @@
     box-sizing: border-box;
   }
   .help {
-    font-size: 12px;
-    color: var(--muted);
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 2px 12px;
+    margin: 0;
     padding: 0 16px 16px;
+    font-size: 12px;
     line-height: 1.5;
+    color: var(--muted);
+  }
+  .help dt {
+    font-weight: 600;
+  }
+  .help dd {
+    margin: 0;
   }
   .toolbar {
     display: flex;
