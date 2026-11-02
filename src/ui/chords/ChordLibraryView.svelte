@@ -1,11 +1,13 @@
 <script lang="ts">
-  // The chord library (chords.cho): diagrams that songs can show after their lyrics.
+  // The chord library (chords.cho): diagrams that songs can show after their lyrics. A
+  // workspace without chords.cho starts from the common guitar chords; the file is
+  // written on the first change.
   // Each chord is edited on its diagram (click the frets) or as ChordPro numbers; the
   // file is a list of {define} lines, rewritten on every change. Importing and exporting
   // it are in its menu in the sidebar (App.svelte).
   import { onDestroy, tick } from 'svelte';
   import { chordNotation, noteName, parseChord, renderChord, type Notation } from '../../core/chords/chords';
-  import { CHORD_LIBRARY, chordKey, COMMON_GUITAR_CHORDS, parseLibrary, serializeLibrary, shapesNotation, type ChordShape } from '../../core/chords/diagrams';
+  import { CHORD_LIBRARY, chordKey, readLibrary, serializeLibrary, shapesNotation, type ChordShape } from '../../core/chords/diagrams';
   import type { FontRegistry } from '../../core/assets/fonts';
   import ChordDiagram from './ChordDiagram.svelte';
   import { t } from '../app/i18n.svelte';
@@ -16,7 +18,8 @@
 
   /** null while loading. */
   let shapes = $state<ChordShape[] | null>(null);
-  let exists = $state(false);
+  /** Whether chords.cho exists (it may still have no chords: then the library is the common ones). */
+  let exists = false;
   let savedText = '';
   let filter = $state('');
   let status = $state('');
@@ -25,15 +28,12 @@
   let list: HTMLElement | undefined = $state();
 
   $effect(() => {
-    workspace
-      .readText(CHORD_LIBRARY)
-      .then((text) => {
-        exists = true;
-        savedText = serializeLibrary(parseLibrary(text));
-        shapes = parseLibrary(text);
-        if (order === 'note') sortByNote();
-      })
-      .catch(() => (shapes = []));
+    readLibrary((p) => workspace.readText(p)).then((lib) => {
+      exists = lib.exists;
+      savedText = serializeLibrary(lib.shapes);
+      shapes = lib.shapes;
+      if (order === 'note') sortByNote();
+    });
   });
 
   const saver = debouncedSaver(600);
@@ -41,7 +41,7 @@
   $effect(() => {
     if (!shapes) return;
     const text = serializeLibrary(shapes.filter((s) => s.name.trim()));
-    if (text === savedText || (!exists && !shapes.length)) return;
+    if (text === savedText) return;
     saver.schedule(async () => {
       try {
         await workspace.writeText(CHORD_LIBRARY, text);
@@ -209,16 +209,6 @@
     inputs?.[inputs.length - 1]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }
 
-  /** Add the common guitar chords the library doesn't have yet. */
-  function addCommon() {
-    const have = new Set(shapes!.map((s) => chordKey(s.name)));
-    const add = parseLibrary(COMMON_GUITAR_CHORDS).filter((s) => !have.has(chordKey(s.name)));
-    // Named like the library's other chords.
-    shapes!.push(...add.map((s) => (notation ? { ...s, name: renderChord(s.name, { notation, transpose: 0 }) } : s)));
-    if (order === 'note') sortByNote();
-    status = t('lib.added', { n: add.length });
-  }
-
   function remove(i: number) {
     shapes!.splice(i, 1);
     invalid = {};
@@ -263,11 +253,10 @@
   <header>
     <h2>{t('lib.title')}</h2>
     <p class="intro">{t('lib.intro')}</p>
-    {#if shapes && (exists || shapes.length)}
+    {#if shapes}
       <div class="tools">
         <input class="filter" type="search" placeholder={t('lib.search')} bind:value={filter} />
         <button class="primary" onclick={addChord}>+ {t('lib.add')}</button>
-        <button onclick={addCommon} title={t('lib.addCommonHelp')}>{t('lib.addCommon')}</button>
         <span class="seg" role="group" aria-label={t('opt.chords')}>
           {t('opt.chords')}
           <button class:active={notation === 'italian'} disabled={!notation} title={t('lib.toItalian')} onclick={() => convert('italian')}>Do Re Mi</button>
@@ -286,13 +275,7 @@
     {/if}
   </header>
 
-  {#if shapes && !exists && !shapes.length}
-    <div class="start">
-      <p>{t('lib.empty')}</p>
-      <button class="primary" onclick={addCommon}>{t('lib.startCommon')}</button>
-      <button onclick={addChord}>{t('lib.startEmpty')}</button>
-    </div>
-  {:else if shapes}
+  {#if shapes}
     <div bind:this={list}>
       {#each groups as g (g.key)}
         {#if order === 'note'}
@@ -390,18 +373,6 @@
   .mono {
     font-family: ui-monospace, Menlo, monospace;
     font-size: 12px;
-  }
-  .start {
-    border: 1px dashed var(--line);
-    border-radius: 8px;
-    padding: 16px;
-    max-width: 60ch;
-  }
-  .start p {
-    margin: 0 0 12px;
-  }
-  .start button {
-    margin-right: 8px;
   }
   .cards {
     list-style: none;

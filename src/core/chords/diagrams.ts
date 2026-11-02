@@ -129,6 +129,16 @@ export function parseLibrary(text: string): ChordShape[] {
   return songShapes(parseSong(text));
 }
 
+/**
+ * The workspace's chord library: the chords of its CHORD_LIBRARY file or, while it has
+ * none (no file, or a file without chords), the common guitar chords. The file is
+ * written only once the library is changed.
+ */
+export async function readLibrary(readText: (path: string) => Promise<string>): Promise<{ shapes: ChordShape[]; exists: boolean }> {
+  const shapes = await readText(CHORD_LIBRARY).then(parseLibrary, () => null);
+  return shapes?.length ? { shapes, exists: true } : { shapes: parseLibrary(COMMON_GUITAR_CHORDS), exists: shapes !== null };
+}
+
 export function serializeLibrary(shapes: ChordShape[]): string {
   const head = [
     '# Chord library of Singing Narwhal: diagrams that songs can show after their lyrics.',
@@ -188,7 +198,7 @@ export function mergeLibraries(library: ChordShape[], incoming: ChordShape[], re
   return [...out, ...added];
 }
 
-/** Common guitar chords, to start a library from. */
+/** Common guitar chords: the library of a workspace that has no chords.cho yet. */
 export const COMMON_GUITAR_CHORDS: string = [
   'C base-fret 1 frets x 3 2 0 1 0 fingers 0 3 2 0 1 0',
   'D base-fret 1 frets x x 0 2 3 2 fingers 0 0 0 1 3 2',

@@ -6,7 +6,7 @@
   import { impose, PAGE_SIZES, type PageSizeName } from '../../core/print/impose';
   import { DEFAULT_STYLE, layoutSong, withFont, type Columns } from '../../core/song/layout';
   import { convertNotation, songKey, songNotation, transposeSong } from '../../core/song/transform';
-  import { CHORD_LIBRARY, chordKey, findShape, parseLibrary, setSongShapes, shapeFor, songChords, songShapes, type ChordShape } from '../../core/chords/diagrams';
+  import { chordKey, findShape, readLibrary, setSongShapes, shapeFor, songChords, songShapes, type ChordShape } from '../../core/chords/diagrams';
   import ChordDiagram from '../chords/ChordDiagram.svelte';
   import FontSelect from '../components/FontSelect.svelte';
   import Preview from '../components/Preview.svelte';
@@ -129,10 +129,7 @@
   // Chord diagrams: the song's {define} lines, picked from the chord library.
   let library = $state<ChordShape[]>([]);
   $effect(() => {
-    workspace
-      .readText(CHORD_LIBRARY)
-      .then((text) => (library = parseLibrary(text)))
-      .catch(() => (library = []));
+    readLibrary((p) => workspace.readText(p)).then((lib) => (library = lib.shapes));
   });
   const shapes = $derived(songShapes(doc));
   const used = $derived(new Set(songChords(doc).map(chordKey)));

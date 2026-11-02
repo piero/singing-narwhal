@@ -11,6 +11,7 @@ import {
   formatDefine,
   parseDefine,
   parseLibrary,
+  readLibrary,
   serializeLibrary,
   setSongShapes,
   shapeFor,
@@ -89,6 +90,19 @@ describe('chord definitions', () => {
       expect(Math.max(...s.frets)).toBeLessThanOrEqual(4);
     }
     expect(parseLibrary(serializeLibrary(library))).toEqual(library);
+  });
+
+  it('uses the common chords until the workspace has its own library', async () => {
+    const files: Record<string, string> = {};
+    const read = async (p: string) => {
+      if (!(p in files)) throw new Error(`File not found: ${p}`);
+      return files[p];
+    };
+    expect(await readLibrary(read)).toEqual({ shapes: library, exists: false });
+    files['chords.cho'] = '{define: La- base-fret 1 frets x 0 2 2 1 0}';
+    expect((await readLibrary(read)).shapes.map((s) => s.name)).toEqual(['La-']);
+    files['chords.cho'] = '# Chord library\n'; // a file without chords: the common ones again
+    expect(await readLibrary(read)).toEqual({ shapes: library, exists: true });
   });
 });
 

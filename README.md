@@ -142,8 +142,8 @@ A song can print diagrams of its chords after the lyrics, in the space left on i
 page, for players who need a reminder of the fingering.
 
 1. **Set up the chord library:** click **Chord library** under *Chords* in the sidebar.
-   Start with the common guitar chords (about 40, changeable) or from an empty library.
-   **+ Chord** adds one; **Add common guitar chords** adds those the library is missing.
+   It starts with about 40 common guitar chords: change or remove them as you like, and
+   **+ Chord** adds one.
    **Chords: Do Re Mi | C D E** rewrites the chord names in either notation, and
    **Order: As added | By note** shows the list in the file's order or grouped by note
    (C, C#, D…; the file keeps its order). Click a group's name to collapse or expand it.

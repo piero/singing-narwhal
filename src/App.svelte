@@ -10,7 +10,7 @@
   import { onSaveError, settleSaves } from './ui/workspace/saves';
   import BookView from './ui/songbook/BookView.svelte';
   import ChordLibraryView from './ui/chords/ChordLibraryView.svelte';
-  import { CHORD_LIBRARY, compareLibraries, mergeLibraries, parseLibrary, serializeLibrary, shapesNotation, shapeFor } from './core/chords/diagrams';
+  import { CHORD_LIBRARY, compareLibraries, mergeLibraries, parseLibrary, readLibrary, serializeLibrary, shapesNotation, shapeFor } from './core/chords/diagrams';
   import { i18n, LANGS, setLang, t, type Lang } from './ui/app/i18n.svelte';
   import ImportDialog from './ui/import/ImportDialog.svelte';
   import PageView from './ui/songbook/PageView.svelte';
@@ -321,6 +321,14 @@
     await saveFile(path.split('/').pop()!, await workspace.readBytes(path), 'text/plain');
   }
 
+  /** Export the chord library, also when it is still the common chords (no file yet). */
+  async function exportLibrary() {
+    menu = null;
+    await settleSaves();
+    const { shapes } = await readLibrary((p) => workspace.readText(p));
+    await saveFile(CHORD_LIBRARY, new TextEncoder().encode(serializeLibrary(shapes)), 'text/plain');
+  }
+
   /**
    * Add the chords of ChordPro files (an exported chord library, or songs with {define}
    * lines) to the chord library: new ones are added; those it has with another shape
@@ -337,7 +345,7 @@
     }
     // The library view, if open, closes while the file changes, saving its edits first.
     await withEditorsClosed(async () => {
-      const library = files.includes(CHORD_LIBRARY) ? parseLibrary(await workspace.readText(CHORD_LIBRARY)) : [];
+      const library = (await readLibrary((p) => workspace.readText(p))).shapes;
       const notation = shapesNotation(library);
       const { added, changed, same } = compareLibraries(library, incoming.map((s) => shapeFor(s, notation)));
       const replace = changed.length > 0 && confirm(t('lib.importReplace', { n: changed.length, names: changed.map((s) => s.name).join(', ') }));
@@ -692,7 +700,7 @@
   <div class="menu" role="menu" style="left: {m.x}px; top: {m.y}px">
     {#if isChordLibrary(m.path)}
       <button role="menuitem" title={t('lib.importHelp')} onclick={importChords}>{t('lib.import')}</button>
-      <button role="menuitem" title={t('lib.exportHelp')} disabled={!files.includes(CHORD_LIBRARY)} onclick={() => saveCopy(CHORD_LIBRARY)}>{t('lib.export')}</button>
+      <button role="menuitem" title={t('lib.exportHelp')} onclick={exportLibrary}>{t('lib.export')}</button>
     {:else}
       <button role="menuitem" onclick={() => rename(m.path)}>{t('menu.rename')}</button>
       <button role="menuitem" onclick={() => saveCopy(m.path)}>{t('menu.saveAs')}</button>

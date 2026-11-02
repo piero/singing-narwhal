@@ -270,7 +270,9 @@ They are hidden when chords are (`show_chords: false`).
 lines, with a comment header.
 - **Reading and writing:** the Chord library view reads it with the song parser and
   rewrites the whole file on every change. Other lines in it are not kept.
-- **Starter chords:** `COMMON_GUITAR_CHORDS` holds about 40 guitar chords to start from.
+- **Starter chords:** a workspace without `chords.cho`, or whose `chords.cho` has no chords,
+  has `COMMON_GUITAR_CHORDS` (about 40 guitar chords) as its library (`readLibrary`). The
+  file is written on the first change, so opening a workspace writes nothing.
 - **Import and export:** the library's ⋯ menu in the sidebar exports `chords.cho` and
   imports the `{define}` lines of any ChordPro file (`compareLibraries`,
   `mergeLibraries`). Chords are matched whatever their notation. New ones are added in
