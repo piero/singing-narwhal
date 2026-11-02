@@ -2,7 +2,7 @@
   "name": "narwhal",
   "title": "Singing Narwhal",
   "id": "org.narwhal.app",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "icon": "assets/narwhal-logo.png",
   "size": "1280x800",
   "backend": "tiny/backend/main.ts",
