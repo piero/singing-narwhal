@@ -21,15 +21,15 @@ flowchart TB
   end
 
   subgraph Core["src/core — pure TypeScript"]
-    Parse["chordpro.ts · chords.ts · transform.ts<br/>parse, transpose, convert"]
-    Layout["layout.ts · pages.ts · songbook.ts<br/>display list of pages"]
-    Out["impose.ts · pdf.ts<br/>sheets, PDF (pdf-lib)"]
+    Parse["song/ · chords/<br/>parse, transpose, convert"]
+    Layout["song/layout.ts · songbook/<br/>display list of pages"]
+    Out["print/<br/>sheets, PDF (pdf-lib)"]
     Import["import/<br/>.odt, .odg and .txt converter"]
   end
 
   CLI["cli/narwhal.ts<br/>(Node, tsx)"]
 
-  subgraph Storage["Workspace implementations (src/ui/workspace.ts)"]
+  subgraph Storage["Workspace implementations (src/ui/workspace/)"]
     BW["BrowserWorkspace<br/>IndexedDB"]
     FW["BrowserFolderWorkspace<br/>File System Access API"]
     TW["TinyWorkspace<br/>RPC to backend"]
@@ -101,7 +101,7 @@ embeds only PNG and JPEG.
 
 ### Import dialog
 
-`src/ui/ImportDialog.svelte` is the only way in from outside the workspace. Single files
+`src/ui/import/ImportDialog.svelte` is the only way in from outside the workspace. Single files
 are converted if needed and put in `songs/`, `pages/`, `images/`, `fonts/` or the top
 folder, with a new name rather than replacing a file. A folder (`filesFromFolder`: the
 desktop app reads it through the backend, browsers use a `webkitdirectory` input, which
@@ -173,6 +173,7 @@ A workspace is a plain folder:
 ```
 canzoniere/
   campo-2026.songbook.yaml
+  chords.cho              # optional: the chord library (diagrams)
   pages/
     copertina.page.yaml
   songs/
@@ -220,12 +221,14 @@ Intro: [D] [G] (2x)
 | `{comment: …}` | italic note |
 | `{column_break}`, `{new_page}` | force a break |
 | `{columns: 2}` | number of columns for this song (songbooks may override it) |
+| `{define: Am base-fret 1 frets x 0 2 2 1 0 fingers 0 0 2 3 1 0}` | chord diagram printed after the lyrics (see below) |
 | `# …` | comment line, not printed |
 
 Unrecognised chords (`N.C.`, `|`, `x2`) are printed as written and never transposed.
 Converting the notation or transposing rewrites the chords in the file. Minor chords keep
 the sign they were written with (`Lam` → `Sim`, `La-` → `Si-`); converting to Do Re Mi
-writes `Am` as `Lam`, and converting to C D E writes `Lam` and `La-` as `Am`.
+writes `Am` as `La-`, the usual sign in Italian songbooks, and converting to C D E writes
+`Lam` and `La-` as `Am`.
 Transposition spells accidentals for the new key (D+1 → E♭, not D♯), using `{key}`. A song
 without `{key}` gets one guessed from its chords (`guessKey` in `chords.ts`): each of the 24
 keys scores the song's chords, fully for chords of the key (with both fifths in minor),
@@ -233,6 +236,51 @@ partly for other roots on its scale, negatively for the rest, and its tonic chor
 extra, most of all as the first and the last chord, which tells a major key from its
 relative minor. The guess is shown in the editor's Key field but written to the file only
 if the user types it.
+
+### Chord diagrams (`{define}`, `chords.cho`)
+
+Diagrams use ChordPro's own `{define}` directive (`diagrams.ts`):
+
+```
+{define: Bm base-fret 1 frets x 2 4 4 3 2 fingers 0 1 3 4 2 1}
+{define: Cm base-fret 3 frets x 1 3 3 2 1 fingers 0 1 3 4 2 1}
+```
+
+- **`frets`**: one value per string, lowest first. Values count from `base-fret` (1 is
+  its fret); `0` is open and `x` (or `N`, `-1`) muted. Any number of strings works, e.g.
+  four for a ukulele.
+- **`fingers`** (optional): one per string, `0` for none. The same finger on several
+  strings at one fret is drawn as a barre.
+- **Not drawn:** a `{define}` without `frets`, or with `diagram off`. Its other keywords
+  (`keys`, `copy`, `display`, `format`) are kept in the file but not used.
+
+**In a song.** A song prints the diagrams it defines, in their order, after the lyrics:
+in rows as wide as a column, in the space left in the last column, or in the next column
+or page. They take part in auto-fit, so they count when choosing columns and text size.
+They are hidden when chords are (`show_chords: false`).
+- **Names:** a diagram matches a chord whatever its notation or spelling (`Am` = `Lam` =
+  `La-`, `Bb` = `A#`: `chordKey`). It is labelled as the song writes that chord, in the
+  notation the song or songbook prints.
+- **Converting the notation** renames the `{define}` lines.
+- **Transposing** replaces each one with the library's diagram of the new chord, since a
+  fingering can't be shifted. Without one in the library it is left unchanged, and the
+  editor marks it as not used by the song.
+
+**The library.** `chords.cho` at the top of the workspace is a ChordPro file of `{define}`
+lines, with a comment header.
+- **Reading and writing:** the Chord library view reads it with the song parser and
+  rewrites the whole file on every change. Other lines in it are not kept.
+- **Starter chords:** a workspace without `chords.cho`, or whose `chords.cho` has no chords,
+  has `COMMON_GUITAR_CHORDS` (about 40 guitar chords) as its library (`readLibrary`). The
+  file is written on the first change, so opening a workspace writes nothing.
+- **Import and export:** the library's ⋯ menu in the sidebar exports `chords.cho` and
+  imports the `{define}` lines of any ChordPro file (`compareLibraries`,
+  `mergeLibraries`). Chords are matched whatever their notation. New ones are added in
+  the library's notation; differing ones replace the library's only if the user agrees.
+  A file named `chords.cho` in the import dialog replaces the library as a whole.
+- **Adding to a song:** picking a diagram in a song copies its definition into the song,
+  after the metadata, named in the song's notation. Songs therefore don't depend on the
+  library: they print the same in songbooks, zips, the CLI and other ChordPro tools.
 
 ### Songbooks (`.songbook.yaml`)
 
@@ -292,7 +340,7 @@ title of the songbook the page is printed in.
 
 ## Storage
 
-All file access goes through the `Workspace` interface (`src/ui/workspace.ts`): `list`,
+All file access goes through the `Workspace` interface (`src/ui/workspace/workspace.ts`): `list`,
 `readText`, `readBytes`, `writeText`, `writeBytes`, `remove`, `rename`. Paths are relative
 to the workspace root with `/` separators.
 
@@ -305,7 +353,7 @@ to the workspace root with `/` separators.
 
 ### Browser storage (IndexedDB)
 
-- Database `narwhal-db` (`src/ui/idb.ts`) with two stores: `files` (path → bytes) and
+- Database `narwhal-db` (`src/ui/workspace/idb.ts`) with two stores: `files` (path → bytes) and
   `meta` (backup times, the remembered folder handle, a "seeded" flag marking that the one-time setup ran).
 - All files are loaded into memory when the workspace opens; reads are served from
   memory. A write resolves only after the IndexedDB transaction commits, and **throws** if
@@ -349,7 +397,7 @@ folder.
 ### Recent folders
 
 Every folder opened, picked or started in is put first in a list of up to 8 recent
-folders (`recentFolders` in `src/ui/workspace.ts`), which the sidebar shows without the
+folders (`recentFolders` in `src/ui/workspace/recent.ts`), which the sidebar shows without the
 current one. The desktop app keeps the paths in `tiny.store` (key `recentFolders`); a path
 that no longer exists is reported and dropped when clicked. Browsers keep the folder
 handles in IndexedDB (`meta`, key `recentFolders`), compared with `isSameEntry`; opening
@@ -365,8 +413,8 @@ exists, it creates `<Documents>/SingingNarwhal` (from `tiny.app.paths()`) and us
 ### Saving
 
 Editors save automatically a moment after the last change (`debouncedSaver` in
-`src/ui/saves.ts`) and flush pending saves when they close. Renames and deletes wait for
-pending saves, and update the songbooks that refer to the file (`src/ui/fileops.ts`).
+`src/ui/workspace/saves.ts`) and flush pending saves when they close. Renames and deletes wait for
+pending saves, and update the songbooks that refer to the file (`src/ui/workspace/fileops.ts`).
 Failed saves are reported in a red error bar.
 
 ## Distribution
@@ -414,7 +462,7 @@ esbuild and run by txiki.js).
   arm64 on Ubuntu 24.04 runners, all attached to a GitHub release. See [Releases](DEVELOPMENT.md#releases).
 - Light or dark follows the system: the page sets `data-theme` on `<html>`, which
   `app.css` styles. Browsers take it from `prefers-color-scheme`; the desktop app from
-  `tiny.theme` (`src/ui/theme.ts`), because the Windows webview doesn't always report the
+  `tiny.theme` (`src/ui/app/theme.ts`), because the Windows webview doesn't always report the
   system setting through the media query. The window's title bar is drawn by Windows.
 - On Windows the backend also scans the Windows font folders for installed fonts; the
   rest of the app uses the same TinyJS APIs, which TinyJS supports on Windows in beta.

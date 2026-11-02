@@ -48,7 +48,7 @@ tinyjs build --dmg   # builds the app and a .dmg into .build/
 ```
 
 Configuration is in `tinyjs.json`; the backend is `tiny/backend/main.ts`, which TinyJS
-bundles with esbuild (it imports `src/core/sfnt.ts`). The backend runs in txiki.js, not Node: check its APIs against the txiki.js runtime that ships with TinyJS
+bundles with esbuild (it imports `src/core/assets/sfnt.ts`). The backend runs in txiki.js, not Node: check its APIs against the txiki.js runtime that ships with TinyJS
 (`~/.tinyjs/bin/tjs run script.js`), not against Node's. For example, `tjs.readFile`
 always returns bytes.
 
@@ -107,41 +107,65 @@ src/
   App.svelte               sidebar, workspace startup and switching, file menu, error bar
   app.css                  global styles and colour tokens (light/dark)
   core/                    pure TypeScript: no DOM, no Node; used by the app and the CLI
-    chords.ts              chord parsing (English/Italian), transposition, spelling, formatting
-    chordpro.ts            ChordPro reader/writer, one entry per source line (lossless)
-    transform.ts           song-wide edits: transpose, convert notation
-    sections.ts            edits on selected lines: sections, breaks, copy/cut/paste
-    layout.ts              song layout: line breaking, chord spacing, columns, auto-fit
-    pages.ts               non-song pages (.page.yaml): format, layout, starter templates
-    songbook.ts            songbook format (.songbook.yaml) and assembly
-    impose.ts              page sizes; placing pages on sheets (copies, 2-up, booklet)
-    pdf.ts                 display list → PDF (pdf-lib)
-    fonts.ts               font registry, measurement (fontkit), bundled font list, installed fonts
-    sfnt.ts                font files: faces, names and licence flags; extracting a face from a .ttc
-    images.ts              PNG/JPEG dimensions
+    chords/
+      chords.ts            chord parsing (English/Italian), transposition, spelling, key guessing
+      diagrams.ts          chord diagrams: {define} reader/writer, chord library, drawing
+    song/
+      chordpro.ts          ChordPro reader/writer, one entry per source line (lossless)
+      transform.ts         song-wide edits: transpose, convert notation
+      sections.ts          edits on selected lines: sections, breaks, copy/cut/paste
+      layout.ts            song layout: line breaking, chord spacing, columns, auto-fit
+    songbook/
+      songbook.ts          songbook format (.songbook.yaml) and assembly
+      pages.ts             non-song pages (.page.yaml): format, layout, starter templates
+    print/
+      display.ts           display list: the positioned text, lines, shapes and images of a page
+      impose.ts            page sizes; placing pages on sheets (copies, 2-up, booklet)
+      pdf.ts               display list → PDF (pdf-lib)
+    assets/
+      fonts.ts             font registry, measurement (fontkit), bundled font list, installed fonts
+      sfnt.ts              font files: faces, names and licence flags; extracting a face from a .ttc
+      images.ts            PNG/JPEG dimensions
     import/
       index.ts             entry points: importFile, importText; plain-text reader
       odt.ts               .odt reader: styles, spacing, character positions
       odg.ts               .odg songbooks: sheets split into pages, songs and other pages
       xml.ts               minimal XML parser for .odt content
       sheet.ts             chords-over-lyrics → ChordPro converter
-    core.test.ts           tests: chords, ChordPro, layout, imposition, transforms, pages
-    import.test.ts         tests: text, .odt and .odg import
-  ui/                      Svelte UI and browser-side services
-    SongView.svelte        song editor screen: metadata, chord tools, preview, export
-    VisualEditor.svelte    chords-over-lyrics editor (wrapping lines), section toolbar, line selection
-    BookView.svelte        songbook editor
-    PageView.svelte        page (.page.yaml) editor
-    ImportDialog.svelte    import of files and pasted text
-    Preview.svelte         SVG rendering of sheets
-    workspace.ts           Workspace interface and implementations; file dialogs; zip
-    idb.ts                 IndexedDB helpers
-    fileops.ts             rename/delete that keep songbooks consistent
-    saves.ts               debounced autosave, pending-save tracking, error reporting
-    assets.svelte.ts       fonts (bundled, workspace, installed) and image URLs
-    FontSelect.svelte      font family picker
-    i18n.svelte.ts         English and Italian strings
-    settings.svelte.ts     preferences remembered per browser
+    */*.test.ts            tests, next to the module they cover
+  ui/                      Svelte UI and browser-side services, by screen
+    app/
+      i18n.svelte.ts       English and Italian strings
+      settings.svelte.ts   preferences remembered per browser
+      fonts.svelte.ts      fonts (bundled, workspace, installed) and image URLs
+      theme.ts             light or dark, from the system setting
+    song/
+      SongView.svelte      song editor screen: metadata, chord tools, preview, export
+      VisualEditor.svelte  chords-over-lyrics editor (wrapping lines), section toolbar, line selection
+    songbook/
+      BookView.svelte      songbook editor
+      PageView.svelte      page (.page.yaml) editor
+    chords/
+      ChordLibraryView.svelte chord library (chords.cho) editor
+      ChordDiagram.svelte  a chord diagram, editable by clicking its frets
+    import/
+      ImportDialog.svelte  import of files and pasted text
+    components/            pieces shared by several screens
+      Preview.svelte       SVG rendering of sheets
+      Splitter.svelte      draggable boundary between editor and preview
+      FontSelect.svelte    font family picker
+      DragHandle.svelte, sortable.ts   reordering lists by dragging
+    workspace/
+      workspace.ts         Workspace interface, file kinds, NoWorkspace, copying between workspaces
+      browser.ts           BrowserWorkspace: files in IndexedDB, backup reminder
+      folder.ts            BrowserFolderWorkspace: a folder through the File System Access API
+      desktop.ts           TinyWorkspace and the bridge to the desktop app (window.tiny)
+      recent.ts            recent folders, folder picker
+      files.ts             file dialogs, "Save as…", zip import and export
+      examples.ts          the bundled example songbook
+      fileops.ts           rename/delete that keep songbooks consistent
+      saves.ts             debounced autosave, pending-save tracking, error reporting
+      idb.ts               IndexedDB helpers
 cli/narwhal.ts              command line: PDF export and import
 tiny/backend/main.ts       TinyJS backend: file access on disk, installed fonts
 public/fonts/              bundled fonts and their licences (also read by the CLI)
@@ -184,7 +208,7 @@ npm test && npm run check && npm run build
   YAML only writes options that differ from the defaults.
 - **Content edits change the file; layout options don't.** Transposing and converting
   chord names rewrite the song. The preview and songbooks only decide how it is printed.
-- **Every user-facing string goes in `i18n.svelte.ts`**, in both English and Italian. The
+- **Every user-facing string goes in `ui/app/i18n.svelte.ts`**, in both English and Italian. The
   type check fails if the Italian dictionary misses a key, or if code uses a key that
   doesn't exist.
 - **Don't hard-code the product name.** It lives only in `tinyjs.json` (`"title"`): Vite
@@ -215,7 +239,7 @@ like the rest of the project.
 - **Song lyrics:** do not commit copyrighted lyrics. Songs in tests or docs must be in the public
   domain or under a licence that allows redistribution.
 - **Translations:** a new interface language means a new dictionary in
-  `src/ui/i18n.svelte.ts` and an entry in `LANGS`.
+  `src/ui/app/i18n.svelte.ts` and an entry in `LANGS`.
 - **Fonts:** bundled fonts must allow redistribution (e.g. SIL OFL); add their licence
   next to them in `public/fonts/`.
 - **Build output:** `dist/` and `.build/` (TinyJS) are not committed.
@@ -244,6 +268,9 @@ like the rest of the project.
 - [x] Live preview drawn from the same layout as the PDF; click the preview to jump to a
       line.
 - [x] PDF export with embedded fonts; A4, A5, A6, Letter, Half Letter.
+- [x] Chord diagrams after the lyrics, in ChordPro `{define}` lines picked from a chord
+      library (`chords.cho`) that starts with common guitar chords; edited by clicking
+      the diagram; renamed with the notation and swapped when transposing.
 - [x] Printing: 1 page per sheet, 2 copies per sheet, 2 pages per sheet, saddle-stitch
       booklets.
 
@@ -285,7 +312,7 @@ like the rest of the project.
       builds; updates; Windows/Linux.
 - [ ] Automated UI tests (e.g. Playwright) in Chromium, WebKit and Firefox.
 - [ ] Offline support for the website (service worker).
-- [ ] Chord diagrams (guitar) in free space at the end of a song or the book.
+- [ ] Chord diagrams for a whole songbook (a page of the chords it uses).
 - [ ] Images inside songs (`{image: …}`), placed in free space at the end of a column.
 - [ ] Style editor for songs (fonts and sizes of lyrics, chords, titles).
 - [ ] Booklet options: cover from a PDF, sections with their own index.

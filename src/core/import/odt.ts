@@ -2,7 +2,7 @@
 // character, computed from the document's fonts, sizes, indents and tab stops.
 
 import { unzipSync, strFromU8 } from 'fflate';
-import { fontVariant, loadedFont, type FontRegistry } from '../fonts';
+import { fontVariant, loadedFont, type FontRegistry } from '../assets/fonts';
 import type { SheetChar, SheetLine } from './sheet';
 import { child, elements, parseXml, type XmlElement } from './xml';
 

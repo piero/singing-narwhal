@@ -1,8 +1,8 @@
 // Song import: .odt documents and plain text (chords over lyrics), or ChordPro
 // files that are passed through unchanged.
 
-import type { FontRegistry } from '../fonts';
-import { getMeta, parseSong } from '../chordpro';
+import type { FontRegistry } from '../assets/fonts';
+import { getMeta, parseSong } from '../song/chordpro';
 import { readOdt } from './odt';
 import { convertSheet, type SheetLine } from './sheet';
 

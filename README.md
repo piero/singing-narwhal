@@ -103,6 +103,7 @@ The sidebar always shows where the open workspace is.
 |---|---|---|
 | Songs with chords on the line above the lyrics | `.odt`, `.txt`, pasted text | converted to ChordPro songs in `songs/` |
 | A songbook laid out in LibreOffice Draw, two A5 pages per landscape sheet | `.odg` | a songbook, with each song in `songs/`, the other pages (cover, notes…) in `pages/` and their pictures in `images/`; pictures next to songs are left out |
+| A chord library (`chords.cho`) | `.cho` | replaces the workspace's chord library |
 | ChordPro songs (from other apps) | `.cho`, `.chordpro`, `.chopro`, `.crd`, `.pro` | copied into `songs/` as they are |
 | Pictures for covers or full pages | `.png`, `.jpg` | copied into `images/` |
 | Extra fonts | `.ttf`, `.otf` | copied into `fonts/`, usable in pages |
@@ -125,14 +126,59 @@ imported. A document holding many songs is imported as one song for now.
    phone: **Select lines**, then tap the first and last line). With lines selected you can
    also put a break after them, which moves the text across an existing break, and cut,
    copy and paste them with their chords. Long lines wrap; chords follow their letters.
-4. **Chords: Do Re Mi | C D E** converts the chord names; **Transpose −½ / +½** changes
-   the key. Both edit the song and can be undone.
+4. **Chords: Do Re Mi | C D E** converts the chord names (minor chords become `La-` in
+   Do Re Mi, `Am` in C D E); **Transpose −½ / +½** changes the key. Both edit the song
+   and can be undone.
 5. The **Key** field (under ⋯) shows the song's key. If the song doesn't state one, the
    key is guessed from the chords and shown in grey italics; type a key to set it. The key
    decides whether transposing writes sharps or flats (E♭ rather than D♯ in B♭).
 
 Changes are saved automatically. If a save fails (for example, no space left), a red
 error bar says so.
+
+### Chord diagrams
+
+A song can print diagrams of its chords after the lyrics, in the space left on its last
+page, for players who need a reminder of the fingering.
+
+1. **Set up the chord library:** click **Chord library** under *Chords* in the sidebar.
+   It starts with about 40 common guitar chords: change or remove them as you like, and
+   **+ Chord** adds one.
+   **Chords: Do Re Mi | C D E** rewrites the chord names in either notation, and
+   **Order: As added | By note** shows the list in the file's order or grouped by note
+   (C, C#, D…; the file keeps its order). Click a group's name to collapse or expand it.
+2. **Draw each chord:** click a fret on the diagram to put a finger there (click again to
+   lift it), and click above the grid to switch a string between open (○) and muted (×).
+   Or type the numbers:
+   - **Frets** go from the lowest string, `0` open, `x` muted. Four numbers make a
+     ukulele chord.
+   - **First fret** moves the diagram up the neck, for chords played higher up (it is
+     printed beside the diagram).
+   - **Fingers** are optional (1–4, `0` for none); the same finger on several strings
+     is drawn as a barre.
+3. **Pick a song's diagrams:** in the song, click **▸ Diagrams** (under ⋯ on a phone;
+   closed, it lists the song's diagrams on one line). Choose chords from **+ Add…**, or
+   click **The song's chords** to add every chord the song uses that the library has.
+   Hover a chip to see its diagram; **×** removes it, **Remove all** removes them all. A
+   dashed chip is a chord the song doesn't use (for example, after a transposition the
+   library couldn't follow).
+
+To share a library or move it to another workspace, use the ⋯ menu next to **Chord
+library**:
+- **Export library…** saves it as `chords.cho`.
+- **Import chords…** adds the chords of such a file, or of any ChordPro song with
+  `{define}` lines. Chords you already have with a different shape are listed, and you
+  choose whether to replace them.
+
+Each diagram is copied into the song, so the song prints the same anywhere, also when
+shared or imported elsewhere. Changing the library later doesn't change the songs: remove
+the diagram from a song and add it again to update it.
+
+- **Names:** chords are matched whatever their notation, so the library's `Am` serves
+  `Lam` and `La-`. The diagram carries the name as the song writes it.
+- **Transposing:** each diagram is swapped for the library's diagram of the new chord.
+- **Hiding:** diagrams are printed only with the chords: unticking **Show chords**, or a
+  songbook without chords, leaves them out.
 
 ### Print a song
 
