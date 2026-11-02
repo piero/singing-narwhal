@@ -31,8 +31,11 @@
       view.style.removeProperty('--edit');
       view.style.removeProperty('--preview');
     } else {
-      view.style.setProperty('--edit', `${share}fr`);
-      view.style.setProperty('--preview', `${1 - share}fr`);
+      // In hundreds: when a pane is held at its minimum width, the grid shares the rest
+      // among the other flexible columns, and flex factors adding up to less than 1 would
+      // leave part of it empty.
+      view.style.setProperty('--edit', `${share * 100}fr`);
+      view.style.setProperty('--preview', `${(1 - share) * 100}fr`);
     }
   }
 
