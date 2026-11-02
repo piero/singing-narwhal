@@ -152,8 +152,11 @@ describe('drawing diagrams', () => {
     expect(cm.some((i) => i.type === 'text' && i.text === '3')).toBe(true); // base fret
   });
 
+  // Lyrics as wide as the page leave no room beside them.
+  const wide = 'tutti quanti insieme '.repeat(8);
+
   it('places them after the lyrics, named as the song writes the chord', () => {
-    const doc = parseSong('{title: T}\n{define: Am base-fret 1 frets x 0 2 2 1 0}\n\n[La-]Ciao a [Do]tutti');
+    const doc = parseSong(`{title: T}\n{define: Am base-fret 1 frets x 0 2 2 1 0}\n\n[La-]Ciao a [Do]${wide}`);
     const page = layoutSong(doc, fonts, DEFAULT_STYLE, opts).pages[0];
     const lyricsBottom = Math.max(...page.items.filter((i) => i.type === 'text' && i.role === 'lyrics').map((i) => (i.type === 'text' ? i.y : 0)));
     const name = page.items.find((i) => i.type === 'text' && i.role === 'chord' && i.text === 'La-');
@@ -169,10 +172,26 @@ describe('drawing diagrams', () => {
 
   it('fills a row with as many diagrams as fit, then starts another', () => {
     const defs = library.slice(0, 20).map((s) => `{define: ${formatDefine(s)}}`).join('\n');
-    const page = layoutSong(parseSong(`{title: T}\n${defs}\n\nHel[C]lo`), fonts, DEFAULT_STYLE, opts).pages[0];
+    const page = layoutSong(parseSong(`{title: T}\n${defs}\n\nHel[C]lo ${wide}`), fonts, DEFAULT_STYLE, opts).pages[0];
     const names = page.items.filter((i) => i.type === 'text' && i.role === 'chord' && i.y > 80);
     const rows = new Set(names.map((i) => (i.type === 'text' ? Math.round(i.y) : 0)));
     expect(names).toHaveLength(20);
     expect(rows.size).toBeGreaterThan(1);
+  });
+
+  it('puts them beside short lyrics, in the free space on the right', () => {
+    const defs = ['G', 'C', 'D', 'G7', 'Cm'].map((n) => `{define: ${formatDefine(findShape(library, n)!)}}`).join('\n');
+    const verse = '[G]Luce rossa, la nel [C]canyon\n[G]ecco dove, voglio [D]andare\n';
+    const page = layoutSong(parseSong(`{title: T}\n${defs}\n\n${verse.repeat(4)}`), fonts, DEFAULT_STYLE, opts).pages[0];
+    const lyrics = page.items.filter((i) => i.type === 'text' && i.role === 'lyrics');
+    const firstLyric = Math.min(...lyrics.map((i) => (i.type === 'text' ? i.y : 0)));
+    const lastLyric = Math.max(...lyrics.map((i) => (i.type === 'text' ? i.y : 0)));
+    const textRight = Math.max(...lyrics.map((i) => (i.type === 'text' ? i.x + fonts.width(i.font, i.size, i.text) : 0)));
+    const dots = page.items.filter((i) => i.type === 'dot');
+    expect(dots.length).toBeGreaterThan(0);
+    for (const d of dots) if (d.type === 'dot') expect(d.x).toBeGreaterThan(textRight);
+    // From the top of the lyrics, not below them.
+    expect(Math.min(...dots.map((d) => (d.type === 'dot' ? d.y : 0)))).toBeLessThan(lastLyric);
+    expect(Math.min(...dots.map((d) => (d.type === 'dot' ? d.y : 0)))).toBeGreaterThan(firstLyric - 20);
   });
 });

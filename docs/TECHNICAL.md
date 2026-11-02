@@ -254,9 +254,15 @@ Diagrams use ChordPro's own `{define}` directive (`diagrams.ts`):
 - **Not drawn:** a `{define}` without `frets`, or with `diagram off`. Its other keywords
   (`keys`, `copy`, `display`, `format`) are kept in the file but not used.
 
-**In a song.** A song prints the diagrams it defines, in their order, after the lyrics:
-in rows as wide as a column, in the space left in the last column, or in the next column
-or page. They take part in auto-fit, so they count when choosing columns and text size.
+**In a song.** A song prints the diagrams it defines, in their order, on its last page:
+- **Beside the lyrics** when the page has room on their right (short lines, or an empty
+  second column): in a grid against the right margin, from the top of the lyrics
+  (`placeBeside`). The room is measured from the right edge of everything below the
+  header, so it must hold all the diagrams.
+- **After the lyrics** otherwise: in rows as wide as a column, in the space left in the
+  last column, or in the next column or page.
+
+They take part in auto-fit, so they count when choosing columns and text size.
 They are hidden when chords are (`show_chords: false`).
 - **Names:** a diagram matches a chord whatever its notation or spelling (`Am` = `Lam` =
   `La-`, `Bb` = `A#`: `chordKey`). It is labelled as the song writes that chord, in the

@@ -6,7 +6,7 @@ import { getMeta, type SongDoc, type ChordAnchor } from './chordpro';
 import { renderChord, spellingForKey, type Notation, type Spelling } from '../chords/chords';
 import { chordKey, diagramItems, songShapes, type ChordShape } from '../chords/diagrams';
 import { fontVariant, loadedFont, type FontRegistry } from '../assets/fonts';
-import { shiftItem, type LaidPage, type TextItem } from '../print/display';
+import { shiftItem, type DrawItem, type LaidPage, type TextItem } from '../print/display';
 import { songKey } from './transform';
 
 export interface TextStyle {
@@ -513,12 +513,16 @@ function flow(ctx: Ctx, s: SongStructure, columns: 1 | 2): { pages: LaidPage[]; 
       place(row);
     }
   }
-  // Chord diagrams after the lyrics, in rows as wide as a column.
+  // Chord diagrams: beside the lyrics of the last page when they leave room on the right
+  // (short lines, or an empty second column), otherwise after the lyrics, in rows as
+  // wide as a column.
   if (opts.showChords && s.diagrams.length) {
     const cells = s.diagrams.map((d) =>
       diagramItems(d.shape, chordText(ctx, d.label), ctx.scale, ctx.fonts, { name: style.chords.font, size: sz(ctx, style.chords), small: style.lyrics.font }),
     );
     const cellGap = 6 * ctx.scale;
+    const box = { left: m.left, right: m.left + innerW, top, bottom, gap: colGap, cellGap, rowGap: blockGap / 2 };
+    if (placeBeside(ctx, page!, cells, box)) return { pages, wrapped };
     const rows: (typeof cells)[] = [];
     let w = Infinity;
     for (const c of cells) {
@@ -543,6 +547,57 @@ function flow(ctx: Ctx, s: SongStructure, columns: 1 | 2): { pages: LaidPage[]; 
     }
   }
   return { pages, wrapped };
+}
+
+type Cell = { items: DrawItem[]; width: number; height: number };
+
+/**
+ * Put the diagrams in the free space to the right of the page's lyrics, in a grid
+ * aligned with the right margin, from the top of the text. False (nothing placed) if
+ * they don't fit there.
+ */
+function placeBeside(
+  ctx: Ctx,
+  page: LaidPage,
+  cells: Cell[],
+  box: { left: number; right: number; top: number; bottom: number; gap: number; cellGap: number; rowGap: number },
+): boolean {
+  // The lyrics' right edge, leaving out the header above `top`.
+  let textRight = box.left;
+  for (const it of page.items) {
+    if ((it.type === 'rule' ? Math.min(it.y1, it.y2) : it.y) < box.top) continue;
+    textRight = Math.max(textRight, itemRight(ctx, it));
+  }
+  const cellW = Math.max(...cells.map((c) => c.width));
+  const perRow = Math.min(cells.length, Math.floor((box.right - textRight - box.gap + box.cellGap) / (cellW + box.cellGap)));
+  if (perRow < 1) return false;
+  const rows: Cell[][] = [];
+  for (let i = 0; i < cells.length; i += perRow) rows.push(cells.slice(i, i + perRow));
+  const heights = rows.map((r) => Math.max(...r.map((c) => c.height)));
+  if (box.top + heights.reduce((a, b) => a + b, 0) + box.rowGap * (rows.length - 1) > box.bottom) return false;
+  const x0 = box.right - perRow * (cellW + box.cellGap) + box.cellGap;
+  let y = box.top;
+  for (const [i, row] of rows.entries()) {
+    for (const [k, c] of row.entries()) {
+      const x = x0 + k * (cellW + box.cellGap) + (cellW - c.width) / 2;
+      page.items.push(...c.items.map((it) => shiftItem(it, x, y)));
+    }
+    y += heights[i] + box.rowGap;
+  }
+  return true;
+}
+
+function itemRight(ctx: Ctx, it: DrawItem): number {
+  switch (it.type) {
+    case 'text':
+      return it.x + ctx.fonts.width(it.font, it.size, it.text);
+    case 'rule':
+      return Math.max(it.x1, it.x2);
+    case 'dot':
+      return it.x + it.r;
+    default:
+      return it.x + it.width;
+  }
 }
 
 export function layoutSong(doc: SongDoc, fonts: FontRegistry, songStyle: SongStyle, opts: LayoutOptions): SongLayout {

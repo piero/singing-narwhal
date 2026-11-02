@@ -138,8 +138,9 @@ error bar says so.
 
 ### Chord diagrams
 
-A song can print diagrams of its chords after the lyrics, in the space left on its last
-page, for players who need a reminder of the fingering.
+A song can print diagrams of its chords on its last page, beside the lyrics when they
+leave room on the right or after them otherwise, for players who need a reminder of the
+fingering.
 
 1. **Set up the chord library:** click **Chord library** under *Chords* in the sidebar.
    It starts with about 40 common guitar chords: change or remove them as you like, and
