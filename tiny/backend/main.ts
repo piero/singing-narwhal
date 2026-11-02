@@ -2,7 +2,7 @@
 // fonts installed on the computer. Runs in txiki.js (https://github.com/saghul/txiki.js);
 // TinyJS bundles it with esbuild because it is TypeScript (see tinyjs.json).
 
-import { extractFace, readFaces, type ReadAt } from '../../src/core/sfnt';
+import { extractFace, readFaces, type ReadAt } from '../../src/core/assets/sfnt';
 
 declare const tjs: any;
 

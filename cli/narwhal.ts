@@ -14,12 +14,12 @@ import { existsSync } from 'node:fs';
 import { importFile, slugify } from '../src/core/import';
 import { dirname, join, resolve, basename } from 'node:path';
 import { parseArgs } from 'node:util';
-import { loadBundledFonts } from '../src/core/fonts';
-import { buildSongbook, defaultSongbook, parseSongbook, type FileLoader } from '../src/core/songbook';
-import { renderPdf } from '../src/core/pdf';
-import type { ImpositionKind, PageSizeName } from '../src/core/impose';
-import type { Notation } from '../src/core/chords';
-import type { Columns } from '../src/core/layout';
+import { loadBundledFonts } from '../src/core/assets/fonts';
+import { buildSongbook, defaultSongbook, parseSongbook, type FileLoader } from '../src/core/songbook/songbook';
+import { renderPdf } from '../src/core/print/pdf';
+import type { ImpositionKind, PageSizeName } from '../src/core/print/impose';
+import type { Notation } from '../src/core/chords/chords';
+import type { Columns } from '../src/core/song/layout';
 
 const { values, positionals } = parseArgs({
   allowPositionals: true,

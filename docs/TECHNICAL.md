@@ -21,15 +21,15 @@ flowchart TB
   end
 
   subgraph Core["src/core — pure TypeScript"]
-    Parse["chordpro.ts · chords.ts · transform.ts<br/>parse, transpose, convert"]
-    Layout["layout.ts · pages.ts · songbook.ts<br/>display list of pages"]
-    Out["impose.ts · pdf.ts<br/>sheets, PDF (pdf-lib)"]
+    Parse["song/ · chords/<br/>parse, transpose, convert"]
+    Layout["song/layout.ts · songbook/<br/>display list of pages"]
+    Out["print/<br/>sheets, PDF (pdf-lib)"]
     Import["import/<br/>.odt, .odg and .txt converter"]
   end
 
   CLI["cli/narwhal.ts<br/>(Node, tsx)"]
 
-  subgraph Storage["Workspace implementations (src/ui/workspace.ts)"]
+  subgraph Storage["Workspace implementations (src/ui/workspace/)"]
     BW["BrowserWorkspace<br/>IndexedDB"]
     FW["BrowserFolderWorkspace<br/>File System Access API"]
     TW["TinyWorkspace<br/>RPC to backend"]
@@ -101,7 +101,7 @@ embeds only PNG and JPEG.
 
 ### Import dialog
 
-`src/ui/ImportDialog.svelte` is the only way in from outside the workspace. Single files
+`src/ui/import/ImportDialog.svelte` is the only way in from outside the workspace. Single files
 are converted if needed and put in `songs/`, `pages/`, `images/`, `fonts/` or the top
 folder, with a new name rather than replacing a file. A folder (`filesFromFolder`: the
 desktop app reads it through the backend, browsers use a `webkitdirectory` input, which
@@ -338,7 +338,7 @@ title of the songbook the page is printed in.
 
 ## Storage
 
-All file access goes through the `Workspace` interface (`src/ui/workspace.ts`): `list`,
+All file access goes through the `Workspace` interface (`src/ui/workspace/workspace.ts`): `list`,
 `readText`, `readBytes`, `writeText`, `writeBytes`, `remove`, `rename`. Paths are relative
 to the workspace root with `/` separators.
 
@@ -351,7 +351,7 @@ to the workspace root with `/` separators.
 
 ### Browser storage (IndexedDB)
 
-- Database `narwhal-db` (`src/ui/idb.ts`) with two stores: `files` (path → bytes) and
+- Database `narwhal-db` (`src/ui/workspace/idb.ts`) with two stores: `files` (path → bytes) and
   `meta` (backup times, the remembered folder handle, a "seeded" flag marking that the one-time setup ran).
 - All files are loaded into memory when the workspace opens; reads are served from
   memory. A write resolves only after the IndexedDB transaction commits, and **throws** if
@@ -395,7 +395,7 @@ folder.
 ### Recent folders
 
 Every folder opened, picked or started in is put first in a list of up to 8 recent
-folders (`recentFolders` in `src/ui/workspace.ts`), which the sidebar shows without the
+folders (`recentFolders` in `src/ui/workspace/recent.ts`), which the sidebar shows without the
 current one. The desktop app keeps the paths in `tiny.store` (key `recentFolders`); a path
 that no longer exists is reported and dropped when clicked. Browsers keep the folder
 handles in IndexedDB (`meta`, key `recentFolders`), compared with `isSameEntry`; opening
@@ -411,8 +411,8 @@ exists, it creates `<Documents>/SingingNarwhal` (from `tiny.app.paths()`) and us
 ### Saving
 
 Editors save automatically a moment after the last change (`debouncedSaver` in
-`src/ui/saves.ts`) and flush pending saves when they close. Renames and deletes wait for
-pending saves, and update the songbooks that refer to the file (`src/ui/fileops.ts`).
+`src/ui/workspace/saves.ts`) and flush pending saves when they close. Renames and deletes wait for
+pending saves, and update the songbooks that refer to the file (`src/ui/workspace/fileops.ts`).
 Failed saves are reported in a red error bar.
 
 ## Distribution
@@ -460,7 +460,7 @@ esbuild and run by txiki.js).
   arm64 on Ubuntu 24.04 runners, all attached to a GitHub release. See [Releases](DEVELOPMENT.md#releases).
 - Light or dark follows the system: the page sets `data-theme` on `<html>`, which
   `app.css` styles. Browsers take it from `prefers-color-scheme`; the desktop app from
-  `tiny.theme` (`src/ui/theme.ts`), because the Windows webview doesn't always report the
+  `tiny.theme` (`src/ui/app/theme.ts`), because the Windows webview doesn't always report the
   system setting through the media query. The window's title bar is drawn by Windows.
 - On Windows the backend also scans the Windows font folders for installed fonts; the
   rest of the app uses the same TinyJS APIs, which TinyJS supports on Windows in beta.

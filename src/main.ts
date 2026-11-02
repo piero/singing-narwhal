@@ -1,7 +1,7 @@
 import { mount } from 'svelte'
 import './app.css'
 import App from './App.svelte'
-import { followTheme } from './ui/theme'
+import { followTheme } from './ui/app/theme'
 
 followTheme()
 

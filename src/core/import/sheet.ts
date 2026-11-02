@@ -11,7 +11,7 @@
 // chord to the lyric character found underneath it. With proportional fonts the
 // positions come from the real font metrics, not from counting spaces.
 
-import { chordNotation, formatChord, parseChord } from '../chords';
+import { chordNotation, formatChord, parseChord } from '../chords/chords';
 
 export interface SheetChar {
   ch: string;

@@ -1,43 +1,27 @@
 <script lang="ts">
-  import { getMeta, parseSong } from './core/chordpro';
-  import { isFontFile, type FontRegistry } from './core/fonts';
+  import { getMeta, parseSong } from './core/song/chordpro';
+  import { isFontFile, type FontRegistry } from './core/assets/fonts';
   import { slugify } from './core/import';
-  import { serializePage, starterTemplate } from './core/pages';
-  import { defaultSongbook, serializeSongbook } from './core/songbook';
+  import { serializePage, starterTemplate } from './core/songbook/pages';
+  import { defaultSongbook, serializeSongbook } from './core/songbook/songbook';
   import { tick } from 'svelte';
-  import { loadFonts, localFontsSupported, offerInstalledFonts } from './ui/assets.svelte';
-  import { deleteFiles, renameFile, renameSong, songbookIndex } from './ui/fileops';
-  import { onSaveError, settleSaves } from './ui/saves';
-  import BookView from './ui/BookView.svelte';
-  import ChordLibraryView from './ui/ChordLibraryView.svelte';
-  import { CHORD_LIBRARY, compareLibraries, mergeLibraries, parseLibrary, serializeLibrary, shapesNotation, shapeFor } from './core/diagrams';
-  import { i18n, LANGS, setLang, t, type Lang } from './ui/i18n.svelte';
-  import ImportDialog from './ui/ImportDialog.svelte';
-  import PageView from './ui/PageView.svelte';
-  import SongView from './ui/SongView.svelte';
-  import {
-    BrowserFolderWorkspace,
-    BrowserWorkspace,
-    NoWorkspace,
-    TinyWorkspace,
-    copyWorkspace,
-    EXAMPLE_BOOK,
-    exampleFiles,
-    isChordLibrary,
-    isPage,
-    pickLocalFiles,
-    isSong,
-    isSongbook,
-    pickFolder,
-    recentFolders,
-    saveFile,
-    tiny,
-    readAbsoluteFiles,
-    zipSongbook,
-    zipWorkspace,
-    type RecentFolder,
-    type Workspace,
-  } from './ui/workspace';
+  import { loadFonts, localFontsSupported, offerInstalledFonts } from './ui/app/fonts.svelte';
+  import { deleteFiles, renameFile, renameSong, songbookIndex } from './ui/workspace/fileops';
+  import { onSaveError, settleSaves } from './ui/workspace/saves';
+  import BookView from './ui/songbook/BookView.svelte';
+  import ChordLibraryView from './ui/chords/ChordLibraryView.svelte';
+  import { CHORD_LIBRARY, compareLibraries, mergeLibraries, parseLibrary, serializeLibrary, shapesNotation, shapeFor } from './core/chords/diagrams';
+  import { i18n, LANGS, setLang, t, type Lang } from './ui/app/i18n.svelte';
+  import ImportDialog from './ui/import/ImportDialog.svelte';
+  import PageView from './ui/songbook/PageView.svelte';
+  import SongView from './ui/song/SongView.svelte';
+  import { BrowserWorkspace } from './ui/workspace/browser';
+  import { readAbsoluteFiles, tiny, TinyWorkspace } from './ui/workspace/desktop';
+  import { EXAMPLE_BOOK, exampleFiles } from './ui/workspace/examples';
+  import { pickLocalFiles, saveFile, zipSongbook, zipWorkspace } from './ui/workspace/files';
+  import { BrowserFolderWorkspace } from './ui/workspace/folder';
+  import { pickFolder, recentFolders, type RecentFolder } from './ui/workspace/recent';
+  import { copyWorkspace, isChordLibrary, isPage, isSong, isSongbook, NoWorkspace, type Workspace } from './ui/workspace/workspace';
 
   let fonts = $state<FontRegistry | null>(null);
   let workspace: Workspace = $state(new NoWorkspace());

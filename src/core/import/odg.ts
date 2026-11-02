@@ -9,13 +9,13 @@
 // booklet for printing (n|1, 2|n-1, n-2|3, …).
 
 import { strFromU8, unzipSync } from 'fflate';
-import { fontVariant, loadedFont, type FontRegistry } from '../fonts';
-import { PAGE_SIZES, type PageSizeName } from '../impose';
-import type { Align, BoxElement, ImageElement, PageDoc, PageElement, TextElement } from '../pages';
+import { fontVariant, loadedFont, type FontRegistry } from '../assets/fonts';
+import { PAGE_SIZES, type PageSizeName } from '../print/impose';
+import type { Align, BoxElement, ImageElement, PageDoc, PageElement, TextElement } from '../songbook/pages';
 import { readOdtXml, registryFamily, Styles, toPt, type TextProps } from './odt';
 import { convertSheet } from './sheet';
 import { child, elements, parseXml, type XmlElement } from './xml';
-import { getMeta, parseSong } from '../chordpro';
+import { getMeta, parseSong } from '../song/chordpro';
 
 export type BookPart =
   | { kind: 'song'; page: number; title: string; chordpro: string }
