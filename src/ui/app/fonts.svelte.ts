@@ -17,18 +17,24 @@ function registerWebFont(id: string, data: Uint8Array) {
   face.load().then((f) => document.fonts.add(f)).catch(() => registered.delete(id));
 }
 
+async function fetchBundledFont(id: string): Promise<Uint8Array> {
+  const url = `${import.meta.env.BASE_URL}fonts/${id}.ttf`;
+  // A font that arrives empty with status 200 (an empty copy in the browser cache, or a
+  // download cut short) is fetched once more, past the cache.
+  for (const cache of ['default', 'reload'] as const) {
+    const res = await fetch(url, { cache });
+    // The desktop app loads the page from file://, where a successful read has status 0.
+    if (!res.ok && res.status !== 0) throw new Error(`${id}: HTTP ${res.status}`);
+    const data = new Uint8Array(await res.arrayBuffer());
+    if (data.length) return data;
+  }
+  throw new Error(`${id}: empty file`);
+}
+
 /** Bundled fonts plus the TTF/OTF files found in the workspace. */
 export async function loadFonts(workspace: Workspace, files: string[]): Promise<{ fonts: FontRegistry; errors: string[] }> {
   if (!bundled.size) {
-    await Promise.all(
-      BUNDLED_FONTS.map(async (id) => {
-        const res = await fetch(`${import.meta.env.BASE_URL}fonts/${id}.ttf`);
-        // The desktop app loads the page from file://, where a successful read has status 0.
-        const data = res.ok || res.status === 0 ? new Uint8Array(await res.arrayBuffer()) : null;
-        if (!data?.length) throw new Error(`${id}: HTTP ${res.status}`);
-        bundled.set(id, data);
-      }),
-    );
+    await Promise.all(BUNDLED_FONTS.map(async (id) => bundled.set(id, await fetchBundledFont(id))));
   }
   const fonts = new FontRegistry();
   const errors: string[] = [];
