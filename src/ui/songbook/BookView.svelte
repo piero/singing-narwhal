@@ -14,6 +14,7 @@
   import DragHandle from '../components/DragHandle.svelte';
   import { importImage, saveFile, zipSongbook } from '../workspace/files';
   import { isImage, isPage, isSong, type Workspace } from '../workspace/workspace';
+  import { openTitle } from '../app/title.svelte';
 
   let {
     workspace,
@@ -93,6 +94,10 @@
 
   // Saved when the user asks (Save, ⌘S in the app).
   $effect(() => openFile.attach(workspace.location, path, save));
+  // The title is edited in the app's top bar.
+  $effect(() => {
+    if (book) return openTitle.provide({ get: () => book?.title ?? '', set: (v) => (book!.title = v), placeholder: t('book.title') });
+  });
   $effect(() => {
     if (!book || loadedPath !== path) return;
     const text = serializeSongbook(book);
@@ -224,8 +229,6 @@
 {#if book}
   <div class="book-view">
     <section class="edit-pane">
-      <input class="title" placeholder={t('book.title')} bind:value={book.title} />
-
       <details class="settings" open={settingsOpen} ontoggle={(e) => toggleSettings(e.currentTarget.open)}>
         <summary>
           <span class="heading">{t('book.settings')}</span>
@@ -404,13 +407,6 @@
     overflow: auto;
     padding: 14px 16px 24px;
     gap: 14px;
-  }
-  .title {
-    font-size: 20px;
-    font-weight: 600;
-    width: 100%;
-    box-sizing: border-box;
-    padding: 6px 10px;
   }
   input,
   select {

@@ -1,5 +1,5 @@
 // Workspace: the folder holding a group's songs (.cho), songbooks (.songbook.yaml),
-// pages, images and the chord library. Implementations:
+// pages, images and chord libraries. Implementations:
 //
 // - TinyWorkspace (desktop.ts): a folder on disk, through the desktop app's backend.
 // - BrowserFolderWorkspace (folder.ts): a folder on disk, through the File System Access
@@ -7,7 +7,7 @@
 // - BrowserWorkspace (browser.ts): the browser's storage (IndexedDB), empty on first use.
 // - NoWorkspace (below): a placeholder until one of them is open.
 
-import { CHORD_LIBRARY } from '../../core/chords/diagrams';
+import { isChordLibrary } from '../../core/chords/diagrams';
 import type { FileLoader } from '../../core/songbook/songbook';
 
 export interface Workspace extends FileLoader {
@@ -25,8 +25,8 @@ export interface Workspace extends FileLoader {
   rename(from: string, to: string): Promise<void>;
 }
 
-/** The chord library (chords.cho at the top) is ChordPro too, but not a song. */
-export const isChordLibrary = (p: string) => p === CHORD_LIBRARY;
+/** Chord libraries (chords.cho at the top, *.chords.cho) are ChordPro too, but not songs. */
+export { isChordLibrary };
 export const isSong = (p: string) => /\.(cho|chordpro|chopro|crd|pro)$/i.test(p) && !isChordLibrary(p);
 export const isSongbook = (p: string) => /\.songbook\.ya?ml$/i.test(p);
 export const isPage = (p: string) => /\.page\.ya?ml$/i.test(p);

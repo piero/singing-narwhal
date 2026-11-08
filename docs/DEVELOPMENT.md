@@ -137,6 +137,7 @@ src/
     app/
       i18n.svelte.ts       English and Italian strings
       settings.svelte.ts   preferences remembered per browser
+      Tour.svelte          welcome tutorial (first launch, and the Tutorial button)
       fonts.svelte.ts      fonts (bundled, workspace, installed) and image URLs
       theme.ts             light or dark, from the system setting
     song/
@@ -146,11 +147,13 @@ src/
       BookView.svelte      songbook editor
       PageView.svelte      page (.page.yaml) editor
     chords/
-      ChordLibraryView.svelte chord library (chords.cho) editor
+      ChordLibraryView.svelte chord library (chords.cho, *.chords.cho) editor
+      libraries.ts         the workspace's chord libraries, and the one songs use
       ChordDiagram.svelte  a chord diagram, editable by clicking its frets
     import/
       ImportDialog.svelte  import of files and pasted text
     components/            pieces shared by several screens
+      Help.svelte          "?" that shows a help text on hover
       Preview.svelte       SVG rendering of sheets
       Splitter.svelte      draggable boundary between editor and preview
       FontSelect.svelte    font family picker
@@ -269,7 +272,7 @@ like the rest of the project.
       line.
 - [x] PDF export with embedded fonts; A4, A5, A6, Letter, Half Letter.
 - [x] Chord diagrams after the lyrics, in ChordPro `{define}` lines picked from a chord
-      library (`chords.cho`) that starts with common guitar chords; edited by clicking
+      library (`chords.cho`, or others in `chords/`) that starts with common guitar chords; edited by clicking
       the diagram; renamed with the notation and swapped when transposing.
 - [x] Printing: 1 page per sheet, 2 copies per sheet, 2 pages per sheet, saddle-stitch
       booklets.

@@ -22,6 +22,7 @@
   import { t, type Key } from '../app/i18n.svelte';
   import DragHandle from '../components/DragHandle.svelte';
   import FontSelect from '../components/FontSelect.svelte';
+  import Help from '../components/Help.svelte';
   import Preview from '../components/Preview.svelte';
   import Splitter from '../components/Splitter.svelte';
   import { sortable } from '../components/sortable';
@@ -310,14 +311,13 @@
         </ol>
         {#if !tpl.elements.length}<p class="empty">{t('page.emptyPage')}</p>{/if}
         <div class="add">
-          <span class="heading">{t('list.add')}</span>
+          <span class="heading">{t('list.add')} <Help text={t('page.placeholders')} /></span>
           <div class="add-row">
             {#each KINDS as k (k.kind)}
               <button class="tinted" style:--k="var(--k-{k.kind})" onclick={() => addElement(k.make)}>+ {t(k.label)}</button>
             {/each}
           </div>
         </div>
-        <p class="help">{t('page.placeholders')}</p>
       {:else}
         <textarea class="source" value={source} oninput={(e) => editSource(e.currentTarget.value)} spellcheck="false"></textarea>
       {/if}
@@ -600,10 +600,6 @@
   }
   .add .tinted {
     min-height: 30px;
-  }
-  .help {
-    font-size: 12px;
-    color: var(--muted);
   }
   .source {
     width: 100%;

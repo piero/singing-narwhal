@@ -1,24 +1,30 @@
 <script lang="ts">
-  // The chord library (chords.cho): diagrams that songs can show after their lyrics. A
-  // workspace without chords.cho starts from the common guitar chords; the file is
-  // written on the first change.
+  // A chord library (chords.cho, or another *.chords.cho): diagrams that songs can show
+  // after their lyrics. A workspace without chords.cho starts from the common guitar
+  // chords; the file is written on the first change. Other libraries start empty.
   // Each chord is edited on its diagram (click the frets) or as ChordPro numbers; the
   // file is a list of {define} lines, rewritten on every change. Importing and exporting
   // it are in its menu in the sidebar (App.svelte).
   import { tick } from 'svelte';
   import { chordNotation, noteName, parseChord, renderChord, type Notation } from '../../core/chords/chords';
-  import { CHORD_LIBRARY, chordKey, parseLibrary, readLibrary, serializeLibrary, shapesNotation, type ChordShape } from '../../core/chords/diagrams';
+  import { chordKey, COMMON_GUITAR_CHORDS, parseLibrary, readLibrary, serializeLibrary, shapesNotation, type ChordShape } from '../../core/chords/diagrams';
   import type { FontRegistry } from '../../core/assets/fonts';
   import ChordDiagram from './ChordDiagram.svelte';
+  import Help from '../components/Help.svelte';
   import { t } from '../app/i18n.svelte';
   import { openFile } from '../workspace/saves.svelte';
   import type { Workspace } from '../workspace/workspace';
 
-  let { workspace, fonts, onsaved }: { workspace: Workspace; fonts: FontRegistry; onsaved?: () => void } = $props();
+  let {
+    workspace,
+    path,
+    fonts,
+    onsaved,
+  }: { workspace: Workspace; path: string; fonts: FontRegistry; onsaved?: () => void } = $props();
 
   /** null while loading. */
   let shapes = $state<ChordShape[] | null>(null);
-  /** Whether chords.cho exists (it may still have no chords: then the library is the common ones). */
+  /** Whether the file exists (chords.cho may still have no chords: then the library is the common ones). */
   let exists = false;
   let savedText = $state('');
   let filter = $state('');
@@ -28,11 +34,11 @@
   let list: HTMLElement | undefined = $state();
 
   $effect(() => {
-    readLibrary((p) => workspace.readText(p)).then((lib) => {
+    readLibrary((p) => workspace.readText(p), path).then((lib) => {
       exists = lib.exists;
       savedText = serializeLibrary(lib.shapes);
       // Changes recovered from the last session, still unsaved.
-      const recovered = openFile.take(CHORD_LIBRARY);
+      const recovered = openFile.take(path);
       shapes = recovered === null ? lib.shapes : parseLibrary(recovered);
       if (order === 'note') sortByNote();
     });
@@ -40,7 +46,7 @@
 
   // Saved when the user asks (Save, ⌘S in the app).
   const fileText = () => serializeLibrary((shapes ?? []).filter((s) => s.name.trim()));
-  $effect(() => openFile.attach(workspace.location, CHORD_LIBRARY, save));
+  $effect(() => openFile.attach(workspace.location, path, save));
   $effect(() => {
     if (!shapes) return;
     const text = fileText();
@@ -51,7 +57,7 @@
     if (!shapes) return;
     const text = fileText();
     try {
-      await workspace.writeText(CHORD_LIBRARY, text);
+      await workspace.writeText(path, text);
       savedText = text;
       status = t('song.saved');
       if (!exists) {
@@ -215,6 +221,13 @@
     inputs?.[inputs.length - 1]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }
 
+  /** An empty library can start from the common guitar chords. */
+  function addCommon() {
+    shapes = parseLibrary(COMMON_GUITAR_CHORDS);
+    status = '';
+    if (order === 'note') sortByNote();
+  }
+
   function remove(i: number) {
     shapes!.splice(i, 1);
     invalid = {};
@@ -257,8 +270,6 @@
 
 <div class="library">
   <header>
-    <h2>{t('lib.title')}</h2>
-    <p class="intro">{t('lib.intro')}</p>
     {#if shapes}
       <div class="tools">
         <input class="filter" type="search" placeholder={t('lib.search')} bind:value={filter} />
@@ -276,6 +287,7 @@
         {#if order === 'note'}
           <button class="link" onclick={() => setClosed(closed.length ? [] : groups.map((g) => g.key))}>{closed.length ? t('lib.expandAll') : t('lib.collapseAll')}</button>
         {/if}
+        <Help text={t('lib.intro')} width={340} />
         <span class="status">{status || t('lib.count', { n: shapes.length })}</span>
       </div>
     {/if}
@@ -301,6 +313,9 @@
       {/each}
     </div>
     {#if filter && !shown.length}<p class="none">{t('lib.noMatch')}</p>{/if}
+    {#if !shapes.length}
+      <p class="none">{t('lib.empty')} <button class="link" onclick={addCommon}>{t('lib.addCommon')}</button></p>
+    {/if}
   {/if}
 </div>
 
@@ -310,17 +325,6 @@
     overflow: auto;
     padding: 14px 16px 32px;
     box-sizing: border-box;
-  }
-  h2 {
-    margin: 0 0 4px;
-    font-size: 20px;
-  }
-  .intro {
-    margin: 0 0 12px;
-    color: var(--muted);
-    font-size: 13px;
-    line-height: 1.5;
-    max-width: 70ch;
   }
   .tools {
     display: flex;

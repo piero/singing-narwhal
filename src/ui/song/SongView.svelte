@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { tick } from 'svelte';
+  import { tick, untrack } from 'svelte';
   import { openFile } from '../workspace/saves.svelte';
   import { getMeta, parseSong, serializeSong, setMeta, type SongDoc } from '../../core/song/chordpro';
   import type { FontRegistry } from '../../core/assets/fonts';
@@ -8,21 +8,25 @@
   import { convertNotation, songKey, songNotation, transposeSong } from '../../core/song/transform';
   import { chordKey, findShape, readLibrary, setSongShapes, shapeFor, songChords, songShapes, type ChordShape } from '../../core/chords/diagrams';
   import ChordDiagram from '../chords/ChordDiagram.svelte';
+  import { chordLibraries, libraryName, setSongLibrary, songLibrary } from '../chords/libraries';
   import FontSelect from '../components/FontSelect.svelte';
+  import Help from '../components/Help.svelte';
   import Preview from '../components/Preview.svelte';
   import Splitter from '../components/Splitter.svelte';
   import VisualEditor from './VisualEditor.svelte';
   import { saveFile } from '../workspace/files';
   import type { Workspace } from '../workspace/workspace';
   import { saveSettings, songSettings } from '../app/settings.svelte';
+  import { openTitle } from '../app/title.svelte';
   import { t } from '../app/i18n.svelte';
 
   let {
     workspace,
     path,
     fonts,
+    files,
     onsaved,
-  }: { workspace: Workspace; path: string; fonts: FontRegistry; onsaved?: () => void } = $props();
+  }: { workspace: Workspace; path: string; fonts: FontRegistry; files: string[]; onsaved?: () => void } = $props();
 
   let doc: SongDoc = $state({ lines: [] });
   let loadedPath = '';
@@ -109,6 +113,8 @@
 
   const meta = (name: string) => getMeta(doc, name) ?? '';
   const setM = (name: string, value: string) => change(setMeta(doc, name, value));
+  // The title is edited in the app's top bar.
+  $effect(() => openTitle.provide({ get: () => meta('title'), set: (v) => setM('title', v), placeholder: t('song.title') }));
 
   const notation = $derived(songNotation(doc));
   // Without {key}, the field shows a key guessed from the chords; typing one saves it.
@@ -128,11 +134,21 @@
   });
   const sheets = $derived(laid ? impose(laid.pages, { kind: songSettings.imposition, foldLine: true }) : []);
 
-  // Chord diagrams: the song's {define} lines, picked from the chord library.
+  // Chord diagrams: the song's {define} lines, picked from a chord library.
+  const libraries = $derived(chordLibraries(files));
+  // Read once, when the song opens; changed with the picker.
+  let libraryPath = $state(untrack(() => songLibrary(files)));
   let library = $state<ChordShape[]>([]);
   $effect(() => {
-    readLibrary((p) => workspace.readText(p)).then((lib) => (library = lib.shapes));
+    const p = libraryPath;
+    readLibrary((f) => workspace.readText(f), p).then((lib) => {
+      if (p === libraryPath) library = lib.shapes;
+    });
   });
+  function pickLibrary(p: string) {
+    libraryPath = p;
+    setSongLibrary(p);
+  }
   const shapes = $derived(songShapes(doc));
   const used = $derived(new Set(songChords(doc).map(chordKey)));
   /** Library chords the song doesn't show yet, named in the song's notation. */
@@ -196,10 +212,6 @@
 <div class="song-view">
   <section class="edit-pane">
     <div class="meta">
-      <div class="row">
-        <input class="title" placeholder={t('song.title')} value={meta('title')} oninput={(e) => setM('title', e.currentTarget.value)} />
-        <button class="details-toggle" aria-expanded={showDetails} title={t('song.details')} onclick={() => (showDetails = !showDetails)}>{showDetails ? '▴' : '⋯'}</button>
-      </div>
       <div class="details" class:open={showDetails}>
       <div class="row">
         <input placeholder={t('song.artist')} value={meta('artist')} oninput={(e) => setM('artist', e.currentTarget.value)} />
@@ -250,6 +262,11 @@
               </ul>
             {/if}
             <div class="adders">
+              {#if libraries.length > 1}
+                <select aria-label={t('song.diagramLibrary')} title={t('song.diagramLibrary')} value={libraryPath} onchange={(e) => pickLibrary(e.currentTarget.value)}>
+                  {#each libraries as l (l)}<option value={l}>🎸 {libraryName(l)}</option>{/each}
+                </select>
+              {/if}
               {#if library.length}
                 <select
                   aria-label={t('song.diagramAdd')}
@@ -273,18 +290,23 @@
       <div class="row tabs">
         <button class:active={mode === 'visual'} onclick={() => (mode = 'visual')}>{t('song.editor')}</button>
         <button class:active={mode === 'source'} onclick={() => (mode = 'source')}>{t('song.source')}</button>
+        {#if mode === 'visual'}
+          <Help width={400}>
+            <dl class="keys">
+              {#each [['help.addChord', 'help.addChordHow'], ['help.moveChord', 'help.moveChordHow'], ['help.editChord', 'help.editChordHow'], ['help.sections', 'help.sectionsHow'], ['help.lines', 'help.linesHow']] as const as [what, how] (what)}
+                <dt>{t(what)}</dt>
+                <dd>{t(how, { chordExample: '[Am]' })}</dd>
+              {/each}
+            </dl>
+          </Help>
+        {/if}
         <span class="status">{status}</span>
+        <button class="details-toggle" aria-expanded={showDetails} title={t('song.details')} onclick={() => (showDetails = !showDetails)}>{showDetails ? '▴' : '⋯'}</button>
       </div>
     </div>
     <div class="editor-scroll">
       {#if mode === 'visual'}
         <VisualEditor {doc} onchange={change} {focusRequest} />
-        <dl class="help">
-          {#each [['help.addChord', 'help.addChordHow'], ['help.moveChord', 'help.moveChordHow'], ['help.editChord', 'help.editChordHow'], ['help.sections', 'help.sectionsHow'], ['help.lines', 'help.linesHow']] as const as [what, how] (what)}
-            <dt>{t(what)}</dt>
-            <dd>{t(how, { chordExample: '[Am]' })}</dd>
-          {/each}
-        </dl>
       {:else}
         <textarea class="source" value={source} oninput={(e) => change(parseSong(e.currentTarget.value))} spellcheck="false"></textarea>
       {/if}
@@ -383,12 +405,6 @@
     color: var(--muted);
     font-style: italic;
   }
-  .meta .title {
-    flex: 1;
-    min-width: 0;
-    font-size: 20px;
-    font-weight: 600;
-  }
   .details {
     display: contents;
   }
@@ -457,21 +473,18 @@
     color: var(--fg);
     box-sizing: border-box;
   }
-  .help {
+  .keys {
     display: grid;
     grid-template-columns: max-content 1fr;
     gap: 2px 12px;
     margin: 0;
-    padding: 0 16px 16px;
-    font-size: 12px;
-    line-height: 1.5;
-    color: var(--muted);
   }
-  .help dt {
+  .keys dt {
     font-weight: 600;
   }
-  .help dd {
+  .keys dd {
     margin: 0;
+    color: var(--muted);
   }
   .toolbar {
     display: flex;
@@ -677,9 +690,6 @@
     .meta {
       padding: 8px 12px 0;
       gap: 6px;
-    }
-    .meta .title {
-      font-size: 18px;
     }
     .details-toggle {
       display: block;

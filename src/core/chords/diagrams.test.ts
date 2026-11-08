@@ -11,6 +11,7 @@ import {
   formatDefine,
   parseDefine,
   parseLibrary,
+  isChordLibrary,
   readLibrary,
   serializeLibrary,
   setSongShapes,
@@ -103,6 +104,25 @@ describe('chord definitions', () => {
     expect((await readLibrary(read)).shapes.map((s) => s.name)).toEqual(['La-']);
     files['chords.cho'] = '# Chord library\n'; // a file without chords: the common ones again
     expect(await readLibrary(read)).toEqual({ shapes: library, exists: true });
+  });
+
+  it('reads other libraries as they are, even empty', async () => {
+    const files: Record<string, string> = { 'chords/ukulele.chords.cho': '# Chord library\n' };
+    const read = async (p: string) => {
+      if (!(p in files)) throw new Error(`File not found: ${p}`);
+      return files[p];
+    };
+    expect(await readLibrary(read, 'chords/ukulele.chords.cho')).toEqual({ shapes: [], exists: true });
+    expect(await readLibrary(read, 'chords/missing.chords.cho')).toEqual({ shapes: [], exists: false });
+    files['chords/ukulele.chords.cho'] = '{define: C base-fret 1 frets 0 0 0 3}';
+    expect((await readLibrary(read, 'chords/ukulele.chords.cho')).shapes.map((s) => s.frets)).toEqual([[0, 0, 0, 3]]);
+  });
+
+  it('tells chord libraries from songs', () => {
+    expect(isChordLibrary('chords.cho')).toBe(true);
+    expect(isChordLibrary('chords/ukulele.chords.cho')).toBe(true);
+    expect(isChordLibrary('songs/chords.cho')).toBe(false);
+    expect(isChordLibrary('songs/amazing-grace.cho')).toBe(false);
   });
 });
 

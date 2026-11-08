@@ -8,6 +8,7 @@
   // can be reviewed and edited, and Cancel discards them.
   import type { FontRegistry } from '../../core/assets/fonts';
   import { isFontFile } from '../../core/assets/fonts';
+  import { CHORD_LIBRARY, LIBRARY_DIR } from '../../core/chords/diagrams';
   import { IMPORTABLE, importFile, importText, slugify } from '../../core/import';
   import { importOdg } from '../../core/import/odg';
   import { pageImages, parsePage, serializePage } from '../../core/songbook/pages';
@@ -62,10 +63,11 @@
     if (isFontFile(base)) return { source: base, path: unique(`fonts/${stem}`, ext), bytes };
     if (isSongbook(base)) return { source: base, path: unique(base.replace(/\.songbook\.ya?ml$/i, ''), '.songbook.yaml'), text: decode(bytes) };
     if (isPage(base)) return { source: base, path: unique(`pages/${base.replace(/\.page\.ya?ml$/i, '')}`, '.page.yaml'), text: decode(bytes) };
-    // A chord library replaces the workspace's.
+    // A chord library replaces the workspace's library with the same name.
     if (isChordLibrary(base)) {
-      taken.add(base);
-      return { source: base, path: base, text: decode(bytes), replaces: files.includes(base) };
+      const path = base === CHORD_LIBRARY ? base : LIBRARY_DIR + base;
+      taken.add(path);
+      return { source: base, path, text: decode(bytes), replaces: files.includes(path) };
     }
     if (!IMPORTABLE.test(base)) throw new Error('unsupported file type');
     const song = importFile(base, bytes, fonts);

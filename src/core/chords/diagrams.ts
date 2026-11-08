@@ -7,9 +7,10 @@
 // one. `fingers` is optional: one finger per string, 0 for none; the same finger on
 // several strings at the same fret is a barre.
 //
-// A song shows the diagrams it defines, after its lyrics. The chord library is a
-// ChordPro file of {define} lines (CHORD_LIBRARY); choosing a diagram for a song
-// copies its definition into the song, so the song stays complete on its own.
+// A song shows the diagrams it defines, after its lyrics. A chord library is a
+// ChordPro file of {define} lines: the main one (CHORD_LIBRARY) and any others
+// (e.g. chords/ukulele.chords.cho); choosing a diagram for a song copies its
+// definition into the song, so the song stays complete on its own.
 
 import { parseSong, type SongDoc, type SongLine } from '../song/chordpro';
 import { chordNotation, parseChord, renderChord, type Notation } from './chords';
@@ -122,20 +123,27 @@ export function songChords(doc: SongDoc): string[] {
 // ---------------------------------------------------------------------------
 // The chord library
 
-/** The workspace file holding the chord library. */
+/** The workspace file holding the main chord library. */
 export const CHORD_LIBRARY = 'chords.cho';
+/** The folder and extension of the other chord libraries. */
+export const LIBRARY_DIR = 'chords/';
+export const LIBRARY_EXT = '.chords.cho';
+
+/** A chord library: the main one (chords.cho at the top) or another (*.chords.cho). */
+export const isChordLibrary = (p: string) => p === CHORD_LIBRARY || p.toLowerCase().endsWith(LIBRARY_EXT);
 
 export function parseLibrary(text: string): ChordShape[] {
   return songShapes(parseSong(text));
 }
 
 /**
- * The workspace's chord library: the chords of its CHORD_LIBRARY file or, while it has
- * none (no file, or a file without chords), the common guitar chords. The file is
- * written only once the library is changed.
+ * A chord library's chords. The main one (CHORD_LIBRARY), while it has none (no file, or
+ * a file without chords), has the common guitar chords: its file is written only once
+ * the library is changed. The others have the chords of their file, maybe none.
  */
-export async function readLibrary(readText: (path: string) => Promise<string>): Promise<{ shapes: ChordShape[]; exists: boolean }> {
-  const shapes = await readText(CHORD_LIBRARY).then(parseLibrary, () => null);
+export async function readLibrary(readText: (path: string) => Promise<string>, path = CHORD_LIBRARY): Promise<{ shapes: ChordShape[]; exists: boolean }> {
+  const shapes = await readText(path).then(parseLibrary, () => null);
+  if (path !== CHORD_LIBRARY) return { shapes: shapes ?? [], exists: shapes !== null };
   return shapes?.length ? { shapes, exists: true } : { shapes: parseLibrary(COMMON_GUITAR_CHORDS), exists: shapes !== null };
 }
 

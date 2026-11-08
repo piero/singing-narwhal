@@ -173,7 +173,9 @@ A workspace is a plain folder:
 ```
 canzoniere/
   campo-2026.songbook.yaml
-  chords.cho              # optional: the chord library (diagrams)
+  chords.cho              # optional: the main chord library (diagrams)
+  chords/                 # optional: other chord libraries
+    ukulele.chords.cho
   pages/
     copertina.page.yaml
   songs/
@@ -272,18 +274,24 @@ They are hidden when chords are (`show_chords: false`).
   fingering can't be shifted. Without one in the library it is left unchanged, and the
   editor marks it as not used by the song.
 
-**The library.** `chords.cho` at the top of the workspace is a ChordPro file of `{define}`
-lines, with a comment header.
+**The libraries.** `chords.cho` at the top of the workspace (the main library) and any
+`*.chords.cho` (others, created in `chords/` with **+** in the sidebar) are ChordPro files
+of `{define}` lines, with a comment header (`isChordLibrary`). They are not songs.
 - **Reading and writing:** the Chord library view reads it with the song parser and
   rewrites the whole file on every change. Other lines in it are not kept.
 - **Starter chords:** a workspace without `chords.cho`, or whose `chords.cho` has no chords,
-  has `COMMON_GUITAR_CHORDS` (about 40 guitar chords) as its library (`readLibrary`). The
-  file is written on the first change, so opening a workspace writes nothing.
-- **Import and export:** the library's ⋯ menu in the sidebar exports `chords.cho` and
+  has `COMMON_GUITAR_CHORDS` (about 40 guitar chords) as its main library (`readLibrary`).
+  The file is written on the first change, so opening a workspace writes nothing. Other
+  libraries start empty and have only the chords of their file.
+- **Which library a song uses:** the song editor picks diagrams (and transposes them) from
+  one library, chosen in its Diagrams panel when there are several and remembered in the
+  browser (`ui/chords/libraries.ts`).
+- **Import and export:** each library's ⋯ menu in the sidebar exports its file and
   imports the `{define}` lines of any ChordPro file (`compareLibraries`,
   `mergeLibraries`). Chords are matched whatever their notation. New ones are added in
   the library's notation; differing ones replace the library's only if the user agrees.
-  A file named `chords.cho` in the import dialog replaces the library as a whole.
+  A file named `chords.cho` in the import dialog replaces the main library as a whole, and
+  a `*.chords.cho` the library of that name in `chords/`.
 - **Adding to a song:** picking a diagram in a song copies its definition into the song,
   after the metadata, named in the song's notation. Songs therefore don't depend on the
   library: they print the same in songbooks, zips, the CLI and other ChordPro tools.

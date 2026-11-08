@@ -10,7 +10,11 @@
   import { openFile } from './ui/workspace/saves.svelte';
   import BookView from './ui/songbook/BookView.svelte';
   import ChordLibraryView from './ui/chords/ChordLibraryView.svelte';
-  import { CHORD_LIBRARY, compareLibraries, mergeLibraries, parseLibrary, readLibrary, serializeLibrary, shapesNotation, shapeFor } from './core/chords/diagrams';
+  import { CHORD_LIBRARY, compareLibraries, LIBRARY_DIR, LIBRARY_EXT, mergeLibraries, parseLibrary, readLibrary, serializeLibrary, shapesNotation, shapeFor } from './core/chords/diagrams';
+  import { chordLibraries, libraryName } from './ui/chords/libraries';
+  import Help from './ui/components/Help.svelte';
+  import Tour from './ui/app/Tour.svelte';
+  import { openTitle } from './ui/app/title.svelte';
   import { i18n, LANGS, setLang, t, type Lang } from './ui/app/i18n.svelte';
   import ImportDialog from './ui/import/ImportDialog.svelte';
   import PageView from './ui/songbook/PageView.svelte';
@@ -50,6 +54,21 @@
   });
   let error = $state('');
   let importing = $state(false);
+  // The welcome tutorial: by itself at the first launch, then from the Tutorial button.
+  const TOUR_KEY = 'narwhal:tourSeen';
+  let touring = $state(false);
+  let tourOffered = false;
+  $effect(() => {
+    if (!ready || !fonts || tourOffered) return;
+    tourOffered = true;
+    try {
+      if (localStorage.getItem(TOUR_KEY)) return;
+      localStorage.setItem(TOUR_KEY, '1');
+    } catch {
+      return; // without storage it would come back at every launch
+    }
+    touring = true;
+  });
   let importDialog = $state<{ addFiles: (list: { name: string; bytes: Uint8Array }[]) => Promise<void> }>();
   /** Files opened with the desktop app from Finder or the Dock, waiting for the import dialog. */
   let opened: { name: string; bytes: Uint8Array }[] = $state([]);
@@ -221,6 +240,9 @@
     await useBrowserStorage();
   }
 
+  /** A folder's path with the home folder as ~, which is most of its length. */
+  const shortPath = (p: string) => p.replace(/^(\/Users|\/home|[A-Za-z]:\\Users)[\\/][^\\/]+/, '~');
+
   const fmtDate = (ms: number) => new Date(ms).toLocaleDateString(i18n.lang, { day: 'numeric', month: 'short', year: 'numeric' });
   const needsBackup = $derived(workspace.kind === 'browser' && backup.lastChange > backup.lastBackup);
 
@@ -332,20 +354,20 @@
     await saveFile(path.split('/').pop()!, await workspace.readBytes(path), 'text/plain');
   }
 
-  /** Export the chord library, also when it is still the common chords (no file yet). */
-  async function exportLibrary() {
+  /** Export a chord library, also the main one when it is still the common chords (no file yet). */
+  async function exportLibrary(path: string) {
     menu = null;
     await openFile.settle();
-    const { shapes } = await readLibrary((p) => workspace.readText(p));
-    await saveFile(CHORD_LIBRARY, new TextEncoder().encode(serializeLibrary(shapes)), 'text/plain');
+    const { shapes } = await readLibrary((p) => workspace.readText(p), path);
+    await saveFile(path.split('/').pop()!, new TextEncoder().encode(serializeLibrary(shapes)), 'text/plain');
   }
 
   /**
    * Add the chords of ChordPro files (an exported chord library, or songs with {define}
-   * lines) to the chord library: new ones are added; those it has with another shape
+   * lines) to a chord library: new ones are added; those it has with another shape
    * replace them if the user agrees.
    */
-  async function importChords() {
+  async function importChords(path: string) {
     menu = null;
     const picked = await pickLocalFiles(['cho', 'chordpro', 'chopro', 'crd', 'pro', 'txt'], true);
     if (!picked.length) return;
@@ -356,11 +378,11 @@
     }
     // The library view, if open, closes while the file changes, saving its edits first.
     await withEditorsClosed(async () => {
-      const library = (await readLibrary((p) => workspace.readText(p))).shapes;
+      const library = (await readLibrary((p) => workspace.readText(p), path)).shapes;
       const notation = shapesNotation(library);
       const { added, changed, same } = compareLibraries(library, incoming.map((s) => shapeFor(s, notation)));
       const replace = changed.length > 0 && confirm(t('lib.importReplace', { n: changed.length, names: changed.map((s) => s.name).join(', ') }));
-      if (added.length || replace) await workspace.writeText(CHORD_LIBRARY, serializeLibrary(mergeLibraries(library, incoming, replace)));
+      if (added.length || replace) await workspace.writeText(path, serializeLibrary(mergeLibraries(library, incoming, replace)));
       notice = t('lib.imported', { added: added.length, replaced: replace ? changed.length : 0, kept: same.length + (replace ? 0 : changed.length) });
       return { from: '', to: null };
     });
@@ -403,6 +425,17 @@
     current = name;
   }
 
+  /** A new chord library, empty: chords are added in it or imported from the sidebar menu. */
+  async function newLibrary() {
+    if (!(await confirmLeave())) return;
+    const title = prompt(t('prompt.libraryName'), t('prompt.libraryNameDefault'));
+    if (!title) return;
+    const name = uniqueName(`${LIBRARY_DIR}${slugify(title)}`, LIBRARY_EXT);
+    await workspace.writeText(name, serializeLibrary([]));
+    await refresh();
+    current = name;
+  }
+
   const unused = (f: string) => !usedIn[f]?.length;
   const songs = $derived(
     files
@@ -417,7 +450,8 @@
   /** The songbook open in the editor, whose songs and pages are marked in the sidebar. */
   const openBook = $derived(current && isSongbook(current) ? current : null);
   const baseName = (f: string) => f.split('/').pop()!.replace(/\.(songbook|page)\.ya?ml$/i, '');
-  const label = (f: string) => (isSong(f) ? (titles[f] ?? baseName(f)) : baseName(f));
+  const label = (f: string) => (isSong(f) ? (titles[f] ?? baseName(f)) : isChordLibrary(f) ? libraryName(f) : baseName(f));
+  const libraries = $derived(chordLibraries(files));
 
   function openMenu(path: string, e: MouseEvent) {
     e.preventDefault();
@@ -450,9 +484,13 @@
 
   async function rename(path: string) {
     menu = null;
-    const old = label(path);
-    const value = prompt(isSong(path) ? t('prompt.newTitle') : t('prompt.newName'), old)?.trim();
-    if (!value || value === old) return;
+    const value = prompt(isSong(path) ? t('prompt.newTitle') : t('prompt.newName'), label(path))?.trim();
+    if (value) await renameTo(path, value);
+  }
+
+  /** Rename a file (a song: its title, and its file to match), unless the name is the same. */
+  async function renameTo(path: string, value: string) {
+    if (!value || value === label(path)) return;
     await withEditorsClosed(async () => ({
       from: path,
       to: isSong(path) ? await renameSong(workspace, files, path, value) : await renameFile(workspace, files, path, value),
@@ -509,7 +547,12 @@
     if (path !== current && (await confirmLeave())) current = path;
   }
 
-  const currentName = $derived(current ? (isChordLibrary(current) ? t('lib.title') : label(current)) : '');
+  const currentName = $derived(current ? label(current) : '');
+  /** The open file's name as typed in the top bar, until it is renamed. */
+  let nameDraft = $state('');
+  $effect(() => {
+    nameDraft = currentName;
+  });
 
   async function save() {
     try {
@@ -628,20 +671,19 @@
   {#if navOpen}<div class="scrim" onclick={() => (navOpen = false)}></div>{/if}
   <aside>
     <div class="brand"><img src={LOGO} alt="" />{__APP_NAME__}</div>
-    <div class="ws">
+    <div class="ws" data-tour="workspace">
       {#if ready}
-        <div class="ws-name" title={t('ws.title')}>{workspace.kind === 'browser' ? '🌐' : '📁'} {workspace.name}</div>
-        <p class="note" class:warn={workspace.kind === 'browser'}>
-          {#if workspace instanceof BrowserWorkspace && !workspace.persistent}
-            {t('ws.memoryOnly')}
-          {:else if workspace.kind === 'browser'}
-            {t('ws.browserNote')}
-          {:else if workspace.location}
-            {t('ws.folderPath', { path: workspace.location })}
-          {:else}
-            {t('ws.folderName', { name: workspace.name })}
-          {/if}
-        </p>
+        <div class="ws-card" class:browser={workspace.kind === 'browser'}>
+          <div class="ws-label">
+            {workspace.kind === 'browser' ? t('ws.titleBrowser') : t('ws.title')}
+            <Help text={workspace.kind === 'browser' ? t('ws.browserHelp') : t('ws.folderHelp')} />
+          </div>
+          <div class="ws-name" title={workspace.location ?? workspace.name}>{workspace.kind === 'browser' ? '🌐' : '📁'} {workspace.name}</div>
+          {#if workspace.location}<div class="ws-path" title={workspace.location}>{shortPath(workspace.location)}</div>{/if}
+        </div>
+        {#if workspace.kind === 'browser'}
+          <p class="note warn">{workspace instanceof BrowserWorkspace && !workspace.persistent ? t('ws.memoryOnly') : t('ws.browserNote')}</p>
+        {/if}
         {#if workspace instanceof BrowserWorkspace && storageProtected}
           <p class="note ok" title={t('ws.protectedHelp')}>✓ {t('ws.protected')}</p>
         {/if}
@@ -689,34 +731,38 @@
       {#if notice}<p class="note ok">{notice}</p>{/if}
     </div>
 
-    <h3>{t('side.songbooks')} <button class="add" onclick={newBook} title={t('side.newSongbook')}>+</button></h3>
-    <ul>
-      {#each books as f (f)}{@render item(f, '📖 ' + baseName(f))}{/each}
-    </ul>
+    <div class="lists" data-tour="lists">
+      <h3>{t('side.songbooks')} <button class="add" onclick={newBook} title={t('side.newSongbook')}>+</button></h3>
+      <ul>
+        {#each books as f (f)}{@render item(f, '📖 ' + baseName(f))}{/each}
+      </ul>
 
-    <div class="tools">
-      <label title={t('side.onlyUnusedHelp')}><input type="checkbox" bind:checked={onlyUnused} /> {t('side.onlyUnused', { n: unusedCount })}</label>
-      {#if !selecting}<button class="link" onclick={() => (selecting = true)} title={t('side.selectHelp')}>{t('side.select')}</button>{/if}
+      <div class="tools">
+        <label title={t('side.onlyUnusedHelp')}><input type="checkbox" bind:checked={onlyUnused} /> {t('side.onlyUnused', { n: unusedCount })}</label>
+        {#if !selecting}<button class="link" onclick={() => (selecting = true)} title={t('side.selectHelp')}>{t('side.select')}</button>{/if}
+      </div>
+
+      <h3>{t('side.pages')} <button class="add" onclick={newPage} title={t('side.newPage')}>+</button></h3>
+      <ul>
+        {#each pages as f (f)}{@render item(f, '📄 ' + baseName(f))}{/each}
+      </ul>
+
+      <h3>{t('side.chords')} <button class="add" onclick={newLibrary} title={t('side.newLibrary')}>+</button></h3>
+      <ul>
+        {#each libraries as f (f)}
+          <li class:active={current === f} class:menu-open={menu?.path === f} oncontextmenu={(e) => openMenu(f, e)}>
+            <button class="open" onclick={() => go(f)} title={libraryName(f)}>🎸 {libraryName(f)}</button>
+            <button class="more" title={t('menu.more')} aria-label={t('menu.more')} onclick={(e) => openMenu(f, e)}>⋯</button>
+          </li>
+        {/each}
+      </ul>
+
+      <h3>{t('side.songs')} <button class="add" onclick={newSong} title={t('side.newSong')}>+</button></h3>
+      <input class="filter" placeholder={t('side.search')} bind:value={filter} />
+      <ul class="songs">
+        {#each songs as f (f)}{@render item(f, titles[f] ?? baseName(f))}{/each}
+      </ul>
     </div>
-
-    <h3>{t('side.pages')} <button class="add" onclick={newPage} title={t('side.newPage')}>+</button></h3>
-    <ul>
-      {#each pages as f (f)}{@render item(f, '📄 ' + baseName(f))}{/each}
-    </ul>
-
-    <h3>{t('side.chords')}</h3>
-    <ul>
-      <li class:active={current === CHORD_LIBRARY} class:menu-open={menu?.path === CHORD_LIBRARY} oncontextmenu={(e) => openMenu(CHORD_LIBRARY, e)}>
-        <button class="open" onclick={() => go(CHORD_LIBRARY)} title={t('lib.intro')}>🎸 {t('lib.title')}</button>
-        <button class="more" title={t('menu.more')} aria-label={t('menu.more')} onclick={(e) => openMenu(CHORD_LIBRARY, e)}>⋯</button>
-      </li>
-    </ul>
-
-    <h3>{t('side.songs')} <button class="add" onclick={newSong} title={t('side.newSong')}>+</button></h3>
-    <input class="filter" placeholder={t('side.search')} bind:value={filter} />
-    <ul class="songs">
-      {#each songs as f (f)}{@render item(f, titles[f] ?? baseName(f))}{/each}
-    </ul>
 
     {#if selecting}
       <div class="selection">
@@ -730,19 +776,50 @@
     {#if localFontsSupported() && !installedFonts}
       <button class="link installed-fonts" onclick={allowInstalledFonts}>{t('font.allow')}</button>
     {/if}
-    <label class="lang">
-      {t('side.language')}
-      <select value={i18n.lang} onchange={(e) => setLang(e.currentTarget.value as Lang)}>
-        {#each LANGS as l (l.id)}<option value={l.id}>{l.label}</option>{/each}
-      </select>
-    </label>
+    <div class="foot">
+      <label class="lang">
+        {t('side.language')}
+        <select value={i18n.lang} onchange={(e) => setLang(e.currentTarget.value as Lang)}>
+          {#each LANGS as l (l.id)}<option value={l.id}>{l.label}</option>{/each}
+        </select>
+      </label>
+      <button class="tour" onclick={() => (touring = true)} title={t('tour.buttonHelp')}>{t('tour.button')}</button>
+    </div>
   </aside>
 
   <main data-pane={pane}>
     <div class="topbar" class:file={!!current}>
       <button class="nav" aria-label={t('nav.menu')} aria-expanded={navOpen} onclick={() => (navOpen = true)}>☰</button>
+      <!-- The open file's title (song, songbook), or its name, edited here. -->
       <span class="title">
-        {current ? currentName : __APP_NAME__}
+        {#if current && fonts && (openTitle.source || current !== CHORD_LIBRARY)}
+          {@const src = openTitle.source}
+          {@const path = current}
+          {@const shown = src ? src.get() : nameDraft}
+          <!-- As wide as its text (the hidden copy sizes it), with a pencil right after it. -->
+          <label class="title-edit" title={src ? t('app.titleHelp') : t('app.renameHelp')}>
+            <span class="sizer" aria-hidden="true">{shown || src?.placeholder}</span>
+            <input
+              class="title-field"
+              size="1"
+              value={shown}
+              placeholder={src?.placeholder}
+              aria-label={src?.placeholder ?? t('prompt.newName')}
+              oninput={(e) => (src ? src.set(e.currentTarget.value) : (nameDraft = e.currentTarget.value))}
+              onchange={async () => {
+                if (src) return;
+                await renameTo(path, nameDraft.trim());
+                nameDraft = label(current ?? path);
+              }}
+              onkeydown={(e) => {
+                if (e.key === 'Escape' && !src) nameDraft = currentName;
+                if (e.key === 'Enter' || e.key === 'Escape') e.currentTarget.blur();
+              }} />
+            <svg class="pencil" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /><path d="m15 5 4 4" /></svg>
+          </label>
+        {:else}
+          <span class="title-text">{current ? currentName : __APP_NAME__}</span>
+        {/if}
         {#if openFile.dirty}<span class="dirty">· {t('app.unsaved')}</span>{/if}
       </span>
       {#if current && fonts}
@@ -771,15 +848,15 @@
       <div class="empty">{t('app.loading')}</div>
     {:else if current && isSong(current)}
       {#key current}
-        <SongView {workspace} path={current} {fonts} onsaved={refresh} />
+        <SongView {workspace} path={current} {fonts} {files} onsaved={refresh} />
       {/key}
     {:else if current && isSongbook(current)}
       {#key current}
         <BookView {workspace} path={current} {fonts} {files} onopen={go} onfileschanged={refresh} onsaved={refreshIndex} />
       {/key}
     {:else if current && isChordLibrary(current)}
-      {#key workspace}
-        <ChordLibraryView {workspace} {fonts} onsaved={refresh} />
+      {#key current}
+        <ChordLibraryView {workspace} path={current} {fonts} onsaved={refresh} />
       {/key}
     {:else if current && isPage(current)}
       {#key current}
@@ -799,6 +876,7 @@
         <p>{t('app.exampleHint')}</p>
         <p class="create">
           <button onclick={loadExample}>📖 {t('app.loadExample')}</button>
+          <button onclick={() => (touring = true)}>🧭 {t('tour.button')}</button>
         </p>
       </div>
     {/if}
@@ -809,8 +887,12 @@
   {@const m = menu}
   <div class="menu" role="menu" style="left: {m.x}px; top: {m.y}px">
     {#if isChordLibrary(m.path)}
-      <button role="menuitem" title={t('lib.importHelp')} onclick={importChords}>{t('lib.import')}</button>
-      <button role="menuitem" title={t('lib.exportHelp')} onclick={exportLibrary}>{t('lib.export')}</button>
+      <button role="menuitem" title={t('lib.importHelp')} onclick={() => importChords(m.path)}>{t('lib.import')}</button>
+      <button role="menuitem" title={t('lib.exportHelp')} onclick={() => exportLibrary(m.path)}>{t('lib.export')}</button>
+      {#if m.path !== CHORD_LIBRARY}
+        <button role="menuitem" onclick={() => rename(m.path)}>{t('menu.rename')}</button>
+        <button role="menuitem" class="danger" onclick={() => remove([m.path])}>{t('menu.delete')}</button>
+      {/if}
     {:else}
       <button role="menuitem" onclick={() => rename(m.path)}>{t('menu.rename')}</button>
       <button role="menuitem" onclick={() => saveCopy(m.path)}>{t('menu.saveAs')}</button>
@@ -838,6 +920,10 @@
       </div>
     </div>
   </div>
+{/if}
+
+{#if touring}
+  <Tour onclose={() => (touring = false)} onsidebar={(open) => (navOpen = open)} />
 {/if}
 
 {#if importing && fonts}
@@ -887,8 +973,39 @@
     flex-direction: column;
     gap: 6px;
   }
-  .ws-name {
+  /* The folder being worked in: what Save writes to, so it stands out. */
+  .ws-card {
+    padding: 8px 10px;
+    border: 1px solid var(--tint-line);
+    border-left: 4px solid var(--accent);
+    border-radius: 6px;
+    background: var(--tint);
+  }
+  .ws-card.browser {
+    border-color: color-mix(in srgb, #e08a00 40%, transparent);
+    border-left-color: #e08a00;
+    background: color-mix(in srgb, #e08a00 8%, transparent);
+  }
+  .ws-label {
+    display: flex;
+    align-items: center;
+    font-size: 11px;
     font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+  }
+  .ws-name {
+    margin-top: 2px;
+    font-size: 16px;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+  }
+  .ws-path {
+    margin-top: 2px;
+    font: 11px/1.35 ui-monospace, Menlo, monospace;
+    color: var(--muted);
+    overflow-wrap: anywhere;
   }
   .ws-actions {
     display: flex;
@@ -966,6 +1083,11 @@
     list-style: none;
     margin: 0;
     padding: 0;
+  }
+  .lists {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
   }
   .songs {
     flex: 1;
@@ -1064,13 +1186,30 @@
     text-decoration: underline;
     cursor: pointer;
   }
-  .installed-fonts + .lang {
+  .installed-fonts + .foot {
     margin-top: 8px;
   }
-  .lang {
+  .foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
     margin-top: 16px;
+  }
+  .lang {
     font-size: 12px;
     color: var(--muted);
+  }
+  .foot .tour {
+    border: none;
+    background: none;
+    padding: 0;
+    color: var(--accent);
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .foot .tour:hover {
+    text-decoration: underline;
   }
   .lang select {
     font: inherit;
@@ -1113,10 +1252,79 @@
   .topbar .title {
     flex: 1;
     min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
     font-weight: 600;
     white-space: nowrap;
+  }
+  .title-text {
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+  /* Looks like the title, with a pencil, until hovered or edited. */
+  .title-edit {
+    display: inline-grid;
+    grid-template-columns: minmax(0, auto) auto;
+    align-items: center;
+    min-width: 0;
+    margin-left: -7px;
+    border: 1px solid transparent;
+    border-radius: 5px;
+    cursor: text;
+  }
+  .title-edit:hover {
+    border-color: var(--line);
+  }
+  .title-edit:focus-within {
+    border-color: var(--accent);
+    background: var(--bg);
+  }
+  .sizer,
+  .title-field {
+    grid-area: 1 / 1;
+    box-sizing: border-box;
+    padding: 3px 6px;
+    font: inherit;
+    font-size: 16px;
+    font-weight: 600;
+    white-space: pre;
+  }
+  .sizer {
+    visibility: hidden;
+    overflow: hidden;
+  }
+  .title-field {
+    width: 100%;
+    min-width: 0;
+    border: none;
+    background: none;
+    color: var(--fg);
+    outline: none;
+    text-overflow: ellipsis;
+  }
+  .pencil {
+    width: 14px;
+    height: 14px;
+    margin-right: 7px;
+    fill: none;
+    stroke: var(--muted);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .title-edit:hover .pencil {
+    stroke: var(--accent);
+  }
+  .title-edit:focus-within .pencil {
+    display: none;
+  }
+  .title-field::placeholder {
+    color: var(--muted);
+    font-weight: normal;
+  }
+  .topbar .dirty {
+    flex: none;
   }
   /* Wide screens: the bar is there for the open file's name and its Save button. */
   .topbar.file {
