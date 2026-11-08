@@ -164,7 +164,7 @@ src/
       files.ts             file dialogs, "Save as…", zip import and export
       examples.ts          the bundled example songbook
       fileops.ts           rename/delete that keep songbooks consistent
-      saves.ts             debounced autosave, pending-save tracking, error reporting
+      saves.svelte.ts      the open file's unsaved changes, desktop recovery copy
       idb.ts               IndexedDB helpers
 cli/narwhal.ts              command line: PDF export and import
 tiny/backend/main.ts       TinyJS backend: file access on disk, installed fonts
@@ -218,8 +218,8 @@ npm test && npm run check && npm run build
   changing them makes users lose their browser data or settings.
 - **Import `core/pdf` dynamically in the UI** (`await import('../core/pdf')`): pdf-lib
   is only needed when exporting, so it stays out of the initial download.
-- **Never report a failed save as saved.** Writes must throw on failure; autosaves go
-  through `trackSave` so failures reach the error bar.
+- **Never report a failed save as saved.** Writes must throw on failure, so that
+  `openFile.save()` rejects and the app shows the error and keeps the file unsaved.
 - **The logo** has one master, `assets/narwhal-logo.png`. After changing it, regenerate
   the web copy: `sips -Z 256 assets/narwhal-logo.png --out public/narwhal-logo-256.png`.
 - Match the style of the surrounding code: 2-space indentation, single quotes, short
@@ -254,7 +254,7 @@ like the rest of the project.
       conventional spelling.
 - [x] Hybrid editor: lyrics as text, chords as chips above their letters. Click to add,
       type `[Am]` inline, drag or use ←/→ to re-anchor; undo/redo; raw ChordPro view;
-      autosave.
+      explicit Save, with a warning before losing unsaved changes.
 - [x] Song structure: choruses (indented, optional label), chorus repeats, instrumental
       lines, notes, forced column/page breaks, all added from a section toolbar and shown
       as markers in the editor.

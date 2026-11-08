@@ -5,13 +5,13 @@
   // Each chord is edited on its diagram (click the frets) or as ChordPro numbers; the
   // file is a list of {define} lines, rewritten on every change. Importing and exporting
   // it are in its menu in the sidebar (App.svelte).
-  import { onDestroy, tick } from 'svelte';
+  import { tick } from 'svelte';
   import { chordNotation, noteName, parseChord, renderChord, type Notation } from '../../core/chords/chords';
-  import { CHORD_LIBRARY, chordKey, readLibrary, serializeLibrary, shapesNotation, type ChordShape } from '../../core/chords/diagrams';
+  import { CHORD_LIBRARY, chordKey, parseLibrary, readLibrary, serializeLibrary, shapesNotation, type ChordShape } from '../../core/chords/diagrams';
   import type { FontRegistry } from '../../core/assets/fonts';
   import ChordDiagram from './ChordDiagram.svelte';
   import { t } from '../app/i18n.svelte';
-  import { debouncedSaver } from '../workspace/saves';
+  import { openFile } from '../workspace/saves.svelte';
   import type { Workspace } from '../workspace/workspace';
 
   let { workspace, fonts, onsaved }: { workspace: Workspace; fonts: FontRegistry; onsaved?: () => void } = $props();
@@ -20,7 +20,7 @@
   let shapes = $state<ChordShape[] | null>(null);
   /** Whether chords.cho exists (it may still have no chords: then the library is the common ones). */
   let exists = false;
-  let savedText = '';
+  let savedText = $state('');
   let filter = $state('');
   let status = $state('');
   /** Cards whose frets or fingers field holds something that isn't valid (yet). */
@@ -31,32 +31,38 @@
     readLibrary((p) => workspace.readText(p)).then((lib) => {
       exists = lib.exists;
       savedText = serializeLibrary(lib.shapes);
-      shapes = lib.shapes;
+      // Changes recovered from the last session, still unsaved.
+      const recovered = openFile.take(CHORD_LIBRARY);
+      shapes = recovered === null ? lib.shapes : parseLibrary(recovered);
       if (order === 'note') sortByNote();
     });
   });
 
-  const saver = debouncedSaver(600);
-  onDestroy(saver.flush);
+  // Saved when the user asks (Save, ⌘S in the app).
+  const fileText = () => serializeLibrary((shapes ?? []).filter((s) => s.name.trim()));
+  $effect(() => openFile.attach(workspace.location, CHORD_LIBRARY, save));
   $effect(() => {
     if (!shapes) return;
-    const text = serializeLibrary(shapes.filter((s) => s.name.trim()));
-    if (text === savedText) return;
-    saver.schedule(async () => {
-      try {
-        await workspace.writeText(CHORD_LIBRARY, text);
-        savedText = text;
-        status = t('song.saved');
-        if (!exists) {
-          exists = true;
-          onsaved?.();
-        }
-      } catch (e) {
-        status = t('song.saveFailed', { msg: (e as Error).message });
-        throw e; // also shown by the app
-      }
-    });
+    const text = fileText();
+    openFile.changed(text !== savedText ? text : null);
+    if (text !== savedText && status === t('song.saved')) status = '';
   });
+  async function save() {
+    if (!shapes) return;
+    const text = fileText();
+    try {
+      await workspace.writeText(CHORD_LIBRARY, text);
+      savedText = text;
+      status = t('song.saved');
+      if (!exists) {
+        exists = true;
+        onsaved?.();
+      }
+    } catch (e) {
+      status = t('song.saveFailed', { msg: (e as Error).message });
+      throw e; // also shown by the app
+    }
+  }
 
   // The list is shown in the file's order or by note; sorting doesn't change the file.
   const ORDER_KEY = 'narwhal:chordOrder';

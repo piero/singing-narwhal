@@ -418,10 +418,28 @@ exists, it creates `<Documents>/SingingNarwhal` (from `tiny.app.paths()`) and us
 
 ### Saving
 
-Editors save automatically a moment after the last change (`debouncedSaver` in
-`src/ui/workspace/saves.ts`) and flush pending saves when they close. Renames and deletes wait for
-pending saves, and update the songbooks that refer to the file (`src/ui/workspace/fileops.ts`).
-Failed saves are reported in a red error bar.
+Nothing is written until the user saves. The open editor attaches itself to `openFile`
+(`src/ui/workspace/saves.svelte.ts`) with a function that saves its file, and reports
+whether its text differs from the one last read or saved. The top bar shows the file's
+name, *Unsaved changes* and **Save** (also ⌘S / Ctrl+S, and File ▸ Save in the desktop
+app). Failed saves are reported in a red error bar.
+
+- **Before closing a file with unsaved changes** (opening another one, switching folder,
+  renaming, deleting other files, importing chords, loading the example) the app asks:
+  **Save**, **Don't save** or **Cancel**. Deleting the open file discards its changes.
+- **Leaving the page** with unsaved changes triggers the browser's `beforeunload` warning.
+- **Quitting the desktop app:** TinyJS has no hook to veto a quit. The app adds its own
+  Quit item with ⌘Q to the application menu, above the stock one, so the shortcut reaches
+  it first; it asks about unsaved changes before calling `tiny.quit()`. The stock Quit
+  item (clicked with the mouse), the window's close button and logging out still quit
+  directly.
+- **Unsaved changes on the desktop:** since a quit can't always be stopped, the unsaved
+  text of the open file is also written, a moment after each change, to `Unsaved.json` in
+  the app's data folder (with the workspace folder, the file's path and the time), and
+  removed when the changes are saved or discarded. At launch, if it belongs to the
+  workspace being opened, that file is opened with the recovered text, still unsaved.
+- Renames and deletes update the songbooks that refer to the file
+  (`src/ui/workspace/fileops.ts`). Exports (`.zip`, **Save as…**) copy the files as saved.
 
 ## Distribution
 

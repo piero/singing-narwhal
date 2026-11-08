@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { onDestroy, tick } from 'svelte';
-  import { debouncedSaver } from '../workspace/saves';
+  import { tick } from 'svelte';
+  import { openFile } from '../workspace/saves.svelte';
   import { getMeta, parseSong, serializeSong, setMeta, type SongDoc } from '../../core/song/chordpro';
   import type { FontRegistry } from '../../core/assets/fonts';
   import { impose, PAGE_SIZES, type PageSizeName } from '../../core/print/impose';
@@ -26,7 +26,7 @@
 
   let doc: SongDoc = $state({ lines: [] });
   let loadedPath = '';
-  let savedText = '';
+  let savedText = $state('');
   let mode: 'visual' | 'source' = $state('visual');
   let status = $state('');
   let focusRequest: { line: number; n: number } | undefined = $state();
@@ -42,34 +42,36 @@
     const p = path;
     workspace.readText(p).then((t) => {
       loadedPath = p;
-      doc = parseSong(t);
-      savedText = serializeSong(doc);
-      history = [savedText];
+      savedText = serializeSong(parseSong(t));
+      // Changes recovered from the last session, still unsaved.
+      doc = parseSong(openFile.take(p) ?? t);
+      history = [serializeSong(doc)];
       future = [];
     });
   });
 
-  // Autosave.
   /** Phones: artist, key and chord tools are folded under the title. */
   let showDetails = $state(false);
-  const saver = debouncedSaver(600);
-  onDestroy(saver.flush);
+
+  // Saved when the user asks (Save, ⌘S in the app).
+  $effect(() => openFile.attach(workspace.location, path, save));
   $effect(() => {
+    // Read before the check: loadedPath isn't reactive, so the effect must depend on the text.
     const text = source;
-    if (!loadedPath || loadedPath !== path || text === savedText) return;
-    const target = loadedPath;
-    saver.schedule(async () => {
-      try {
-        await workspace.writeText(target, text);
-        savedText = text;
-        status = t('song.saved');
-        onsaved?.();
-      } catch (e) {
-        status = t('song.saveFailed', { msg: (e as Error).message });
-        throw e; // also shown by the app
-      }
-    });
+    if (loadedPath === path) openFile.changed(text !== savedText ? text : null);
   });
+  async function save() {
+    const text = source;
+    try {
+      await workspace.writeText(path, text);
+      savedText = text;
+      status = t('song.saved');
+      onsaved?.();
+    } catch (e) {
+      status = t('song.saveFailed', { msg: (e as Error).message });
+      throw e; // also shown by the app
+    }
+  }
 
   /** Apply an edit. Typing within a short time is grouped into one undo step; `step` forces a new one. */
   function change(d: SongDoc, step = false) {

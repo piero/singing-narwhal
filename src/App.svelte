@@ -7,7 +7,7 @@
   import { tick } from 'svelte';
   import { loadFonts, localFontsSupported, offerInstalledFonts } from './ui/app/fonts.svelte';
   import { deleteFiles, renameFile, renameSong, songbookIndex } from './ui/workspace/fileops';
-  import { onSaveError, settleSaves } from './ui/workspace/saves';
+  import { openFile } from './ui/workspace/saves.svelte';
   import BookView from './ui/songbook/BookView.svelte';
   import ChordLibraryView from './ui/chords/ChordLibraryView.svelte';
   import { CHORD_LIBRARY, compareLibraries, mergeLibraries, parseLibrary, readLibrary, serializeLibrary, shapesNotation, shapeFor } from './core/chords/diagrams';
@@ -133,7 +133,6 @@
   let notice = $state('');
   const canUseFolders = !!tiny() || BrowserFolderWorkspace.supported();
 
-  onSaveError((e) => (error = t('error.save', { msg: (e as Error).message })));
   // Any other failed operation (e.g. creating a file) is shown too, not only logged.
   window.addEventListener('unhandledrejection', (e) => (error = t('error.op', { msg: (e.reason as Error)?.message ?? String(e.reason) })));
 
@@ -171,6 +170,13 @@
         const r = await TinyWorkspace.start();
         workspace = r.ws;
         notice = r.notice ?? '';
+        // Changes not saved when the app was last quit: opened again, still to be saved.
+        const draft = await openFile.recover(r.ws.location);
+        if (draft && (draft.path === CHORD_LIBRARY || (await r.ws.list()).includes(draft.path))) {
+          await tick();
+          current = draft.path;
+          notice = t('app.recovered', { time: new Date(draft.time).toLocaleString(i18n.lang, { dateStyle: 'medium', timeStyle: 'short' }) });
+        } else if (draft) await openFile.discard();
       } catch (e) {
         error = (e as Error).message;
       }
@@ -200,7 +206,7 @@
   })();
 
   async function reopenFolder() {
-    if (!rememberedFolder) return;
+    if (!rememberedFolder || !(await confirmLeave())) return;
     const ws = await BrowserFolderWorkspace.reopen(rememberedFolder, true);
     if (ws) {
       rememberedFolder = null;
@@ -209,6 +215,7 @@
   }
 
   async function switchToBrowser() {
+    if (!(await confirmLeave())) return;
     await BrowserFolderWorkspace.forget();
     rememberedFolder = null;
     await useBrowserStorage();
@@ -218,6 +225,7 @@
   const needsBackup = $derived(workspace.kind === 'browser' && backup.lastChange > backup.lastBackup);
 
   async function openFolder() {
+    if (!(await confirmLeave())) return;
     try {
       const w = await pickFolder();
       if (w) {
@@ -242,6 +250,7 @@
   });
 
   async function openRecent(r: RecentFolder) {
+    if (!(await confirmLeave())) return;
     try {
       const w = await r.open();
       if (w) {
@@ -261,6 +270,7 @@
 
   /** Copy everything into a folder on disk and continue working there. */
   async function saveAllToFolder() {
+    if (!(await confirmLeave())) return;
     try {
       const target = await pickFolder();
       if (!target) return;
@@ -269,7 +279,7 @@
       const open = current;
       current = null;
       await tick();
-      await settleSaves();
+      await openFile.settle();
       const n = await copyWorkspace(workspace, target);
       if (workspace instanceof BrowserWorkspace) await workspace.markBackedUp();
       workspace = target;
@@ -283,7 +293,7 @@
 
   async function downloadZip() {
     try {
-      await settleSaves();
+      await openFile.settle();
       const name = workspace instanceof BrowserWorkspace ? `narwhal-backup-${new Date().toISOString().slice(0, 10)}.zip` : `${workspace.name}.zip`;
       if ((await saveFile(name, await zipWorkspace(workspace), 'application/zip')) && workspace instanceof BrowserWorkspace) await workspace.markBackedUp();
     } catch (e) {
@@ -293,6 +303,7 @@
 
   /** Add the example songbook, with its songs and pages, and open it. */
   async function loadExample() {
+    if (!(await confirmLeave())) return;
     const entries = exampleFiles();
     const replaced = entries.filter(([p]) => files.includes(p)).length;
     if (replaced && !confirm(t('app.exampleReplace', { n: replaced }))) return;
@@ -306,7 +317,7 @@
   async function downloadBookZip(path: string) {
     menu = null;
     try {
-      await settleSaves();
+      await openFile.settle();
       const { zip, missing } = await zipSongbook(workspace, path);
       const name = path.split('/').pop()!.replace(/\.songbook\.ya?ml$/i, '');
       if ((await saveFile(`${name}.zip`, zip, 'application/zip')) && missing.length) error = t('book.zipMissing', { files: missing.join(', ') });
@@ -317,14 +328,14 @@
 
   async function saveCopy(path: string) {
     menu = null;
-    await settleSaves();
+    await openFile.settle();
     await saveFile(path.split('/').pop()!, await workspace.readBytes(path), 'text/plain');
   }
 
   /** Export the chord library, also when it is still the common chords (no file yet). */
   async function exportLibrary() {
     menu = null;
-    await settleSaves();
+    await openFile.settle();
     const { shapes } = await readLibrary((p) => workspace.readText(p));
     await saveFile(CHORD_LIBRARY, new TextEncoder().encode(serializeLibrary(shapes)), 'text/plain');
   }
@@ -362,6 +373,7 @@
   }
 
   async function newSong() {
+    if (!(await confirmLeave())) return;
     const title = prompt(t('prompt.songTitle'), t('prompt.songTitleDefault'));
     if (!title) return;
     const name = uniqueName(`songs/${slugify(title)}`, '.cho');
@@ -371,6 +383,7 @@
   }
 
   async function newBook() {
+    if (!(await confirmLeave())) return;
     const title = prompt(t('prompt.bookTitle'), t('prompt.bookTitleDefault'));
     if (!title) return;
     const name = uniqueName(title.replace(/[/\\:]/g, '-'), '.songbook.yaml');
@@ -381,6 +394,7 @@
   }
 
   async function newPage() {
+    if (!(await confirmLeave())) return;
     const title = prompt(t('prompt.pageName'), t('prompt.pageNameDefault'));
     if (!title) return;
     const name = uniqueName(`pages/${slugify(title)}`, '.page.yaml');
@@ -417,10 +431,11 @@
    * then reopen what was open, following a rename.
    */
   async function withEditorsClosed(op: () => Promise<{ from: string; to: string | null }>) {
+    if (!(await confirmLeave())) return;
     const open = current;
     current = null;
     await tick();
-    await settleSaves();
+    await openFile.settle();
     try {
       const { from, to } = await op();
       delete titles[from];
@@ -448,7 +463,7 @@
   async function remove(paths: string[]) {
     menu = null;
     if (!paths.length) return;
-    await settleSaves();
+    await openFile.settle();
     const index = await songbookIndex(workspace, files);
     const byBook = new Map<string, string[]>();
     for (const p of paths) for (const b of index[p] ?? []) if (!paths.includes(b)) byBook.set(b, [...(byBook.get(b) ?? []), p]);
@@ -464,6 +479,8 @@
     }
     if (!confirm(msg)) return;
     const open = current;
+    // Unsaved changes to a deleted file are gone with it.
+    if (open && paths.includes(open)) await openFile.discard();
     await withEditorsClosed(async () => {
       await deleteFiles(workspace, files, paths);
       for (const p of paths) delete titles[p];
@@ -487,6 +504,86 @@
     const books = usedIn[f] ?? [];
     return text + '\n' + (books.length ? t('side.inBooks', { books: books.map(baseName).join(', ') }) : t('side.inNoBook'));
   }
+  /** Open a file in the editor (null: none), once the open one's changes are saved or discarded. */
+  async function go(path: string | null) {
+    if (path !== current && (await confirmLeave())) current = path;
+  }
+
+  const currentName = $derived(current ? (isChordLibrary(current) ? t('lib.title') : label(current)) : '');
+
+  async function save() {
+    try {
+      await openFile.save();
+    } catch (e) {
+      error = t('error.save', { msg: (e as Error).message });
+      throw e;
+    }
+  }
+
+  // Asking what to do with unsaved changes before closing the file, or quitting.
+  type Answer = 'save' | 'discard' | 'cancel';
+  let asking = $state<{ answer: (a: Answer) => void } | null>(null);
+  function ask(): Promise<Answer> {
+    asking?.answer('cancel');
+    return new Promise((resolve) => {
+      asking = {
+        answer: (a) => {
+          asking = null;
+          resolve(a);
+        },
+      };
+    });
+  }
+
+  /** True once the open file has no unsaved changes (saved or discarded), false to stay. */
+  async function confirmLeave(): Promise<boolean> {
+    if (!openFile.dirty) return true;
+    const a = await ask();
+    if (a === 'cancel') return false;
+    if (a === 'discard') {
+      await openFile.discard();
+      return true;
+    }
+    return save().then(
+      () => true,
+      () => false,
+    );
+  }
+
+  // The window's title shows whether the open file has unsaved changes.
+  $effect(() => {
+    const title = `${openFile.dirty ? '• ' : ''}${currentName ? `${currentName} — ` : ''}${__APP_NAME__}`;
+    document.title = title;
+    tiny()?.win?.setTitle(title).catch(() => {});
+  });
+
+  // Desktop: TinyJS has no hook to stop a quit, so the app menu gets a Quit item of its own
+  // with ⌘Q: placed above the stock one, it takes the shortcut, and asks about unsaved
+  // changes first. The window's close button still quits directly: the unsaved changes are
+  // then kept aside and opened again at the next launch (saves.svelte.ts).
+  $effect(() => {
+    tiny()
+      ?.menu?.set([
+        { role: 'app', standard: false, items: [{ id: 'quit', label: t('app.quit', { app: __APP_NAME__ }), key: 'q' }] },
+        { title: t('app.file'), items: [{ id: 'save', label: t('app.save'), key: 's' }] },
+      ])
+      .catch(() => {});
+  });
+  tiny()?.menu?.on(async (id) => {
+    if (id === 'save') save().catch(() => {});
+    else if (id === 'quit') {
+      tiny()!.win?.show();
+      if (await confirmLeave()) tiny()!.quit();
+    }
+  });
+
+  // Web: the browser asks before leaving a page with unsaved changes.
+  function leaving(e: BeforeUnloadEvent) {
+    if (!openFile.dirty || tiny()) return;
+    e.preventDefault();
+    e.returnValue = '';
+  }
+
   // Web-sized copy of assets/narwhal-logo.png (the master, also the app icon).
   const LOGO = import.meta.env.BASE_URL + 'narwhal-logo-256.png';
 </script>
@@ -504,7 +601,7 @@
     oncontextmenu={(e) => openMenu(f, e)}
   >
     {#if pick}<input type="checkbox" checked={selected.includes(f)} onchange={() => toggleSelected(f)} aria-label={text} />{/if}
-    <button class="open" onclick={() => (pick ? toggleSelected(f) : (current = f))} title={member ? membership(f, text) : text}>{text}</button>
+    <button class="open" onclick={() => (pick ? toggleSelected(f) : go(f))} title={member ? membership(f, text) : text}>{text}</button>
     {#if member}<span class="books" title={membership(f, text)}>{books.length || '○'}</span>{/if}
     {#if !pick}<button class="more" title={t('menu.more')} aria-label={t('menu.more')} onclick={(e) => openMenu(f, e)}>⋯</button>{/if}
   </li>
@@ -512,9 +609,16 @@
 
 <svelte:window
   onclick={() => (menu = null)}
+  onbeforeunload={leaving}
   onkeydown={(e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
+      e.preventDefault();
+      save().catch(() => {});
+      return;
+    }
     if (e.key !== 'Escape') return;
-    if (menu) menu = null;
+    if (asking) asking.answer('cancel');
+    else if (menu) menu = null;
     else if (selecting && !importing) stopSelecting();
   }}
 />
@@ -603,7 +707,7 @@
     <h3>{t('side.chords')}</h3>
     <ul>
       <li class:active={current === CHORD_LIBRARY} class:menu-open={menu?.path === CHORD_LIBRARY} oncontextmenu={(e) => openMenu(CHORD_LIBRARY, e)}>
-        <button class="open" onclick={() => (current = CHORD_LIBRARY)} title={t('lib.intro')}>🎸 {t('lib.title')}</button>
+        <button class="open" onclick={() => go(CHORD_LIBRARY)} title={t('lib.intro')}>🎸 {t('lib.title')}</button>
         <button class="more" title={t('menu.more')} aria-label={t('menu.more')} onclick={(e) => openMenu(CHORD_LIBRARY, e)}>⋯</button>
       </li>
     </ul>
@@ -635,9 +739,15 @@
   </aside>
 
   <main data-pane={pane}>
-    <div class="topbar">
+    <div class="topbar" class:file={!!current}>
       <button class="nav" aria-label={t('nav.menu')} aria-expanded={navOpen} onclick={() => (navOpen = true)}>☰</button>
-      <span class="title">{current ? (isChordLibrary(current) ? t('lib.title') : label(current)) : __APP_NAME__}</span>
+      <span class="title">
+        {current ? currentName : __APP_NAME__}
+        {#if openFile.dirty}<span class="dirty">· {t('app.unsaved')}</span>{/if}
+      </span>
+      {#if current && fonts}
+        <button class="save" class:primary={openFile.dirty} disabled={!openFile.dirty} title={t('app.saveHelp')} onclick={() => save().catch(() => {})}>{t('app.save')}</button>
+      {/if}
       {#if current && fonts && !isChordLibrary(current)}
         <div class="pane-switch" role="group">
           <button class:on={pane === 'edit'} aria-pressed={pane === 'edit'} onclick={() => (pane = 'edit')}>{t('nav.edit')}</button>
@@ -651,7 +761,7 @@
       <div class="used-in" class:unused={!books.length}>
         {#if books.length}
           {t('side.inBooksLabel')}
-          {#each books as b (b)}<button onclick={() => (current = b)}>📖 {baseName(b)}</button>{/each}
+          {#each books as b (b)}<button onclick={() => go(b)}>📖 {baseName(b)}</button>{/each}
         {:else}
           ○ {t('side.inNoBookHint')}
         {/if}
@@ -665,7 +775,7 @@
       {/key}
     {:else if current && isSongbook(current)}
       {#key current}
-        <BookView {workspace} path={current} {fonts} {files} onopen={(p) => (current = p)} onfileschanged={refresh} onsaved={refreshIndex} />
+        <BookView {workspace} path={current} {fonts} {files} onopen={go} onfileschanged={refresh} onsaved={refreshIndex} />
       {/key}
     {:else if current && isChordLibrary(current)}
       {#key workspace}
@@ -712,6 +822,24 @@
   </div>
 {/if}
 
+{#if asking}
+  {@const a = asking}
+  <div class="veil">
+    <div class="ask" role="alertdialog" aria-modal="true" aria-labelledby="ask-title" aria-describedby="ask-detail">
+      <img src={LOGO} alt="" width="48" height="48" />
+      <p id="ask-title"><b>{t('app.askSave', { name: currentName })}</b></p>
+      <p id="ask-detail" class="muted">{t('app.askDetail')}</p>
+      <div class="buttons">
+        <button onclick={() => a.answer('discard')}>{t('app.dontSave')}</button>
+        <span></span>
+        <button onclick={() => a.answer('cancel')}>{t('app.cancel')}</button>
+        <!-- svelte-ignore a11y_autofocus -->
+        <button class="primary" autofocus onclick={() => a.answer('save')}>{t('app.save')}</button>
+      </div>
+    </div>
+  </div>
+{/if}
+
 {#if importing && fonts}
   <ImportDialog
     bind:this={importDialog}
@@ -721,7 +849,7 @@
     onclose={async (opened) => {
       importing = false;
       await refresh();
-      if (opened) current = opened;
+      if (opened) go(opened);
     }}
   />
 {/if}
@@ -989,6 +1117,66 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+  /* Wide screens: the bar is there for the open file's name and its Save button. */
+  .topbar.file {
+    display: flex;
+  }
+  .topbar .dirty {
+    font-weight: normal;
+    color: var(--accent);
+  }
+  .topbar .save,
+  .buttons button {
+    border: 1px solid var(--line);
+    background: var(--bg);
+    color: var(--fg);
+    border-radius: 5px;
+    padding: 3px 10px;
+    cursor: pointer;
+  }
+  .topbar .save {
+    font-size: 13px;
+  }
+  .topbar .save.primary,
+  .buttons button.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--on-accent);
+  }
+  .veil {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    background: rgba(0, 0, 0, 0.35);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 12vh 16px 0;
+  }
+  .ask {
+    width: min(360px, 100%);
+    background: var(--bg);
+    color: var(--fg);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+    text-align: center;
+  }
+  .ask p {
+    margin: 10px 0 0;
+  }
+  .ask .muted {
+    color: var(--muted);
+  }
+  .buttons {
+    display: flex;
+    gap: 8px;
+    margin-top: 18px;
+  }
+  .buttons span {
+    flex: 1;
   }
   .pane-switch {
     border: 1px solid var(--line);

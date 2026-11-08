@@ -1,9 +1,9 @@
 <script lang="ts">
   // Editor for pages (.page.yaml): a list of elements with their
   // settings, a YAML source view and a live preview.
-  import { onDestroy, tick } from 'svelte';
+  import { tick } from 'svelte';
   import { SvelteSet } from 'svelte/reactivity';
-  import { debouncedSaver } from '../workspace/saves';
+  import { openFile } from '../workspace/saves.svelte';
   import { fontFamily, fontVariant, type FontRegistry } from '../../core/assets/fonts';
   import { imageSize } from '../../core/assets/images';
   import { PAGE_SIZES, type PageSizeName } from '../../core/print/impose';
@@ -40,30 +40,31 @@
   let mode: 'elements' | 'source' = $state('elements');
   let page: PageSizeName = $state('A5');
   let previewTitle = $state('Canzoniere');
-  let savedText = '';
+  let savedText = $state('');
   let sizes: Record<string, { width: number; height: number }> = $state({});
   const images = new ImageUrls((p) => workspace.readBytes(p));
 
   $effect(() => {
     workspace.readText(path).then((text) => {
-      tpl = parsePage(text);
-      savedText = serializePage(tpl);
+      savedText = serializePage(parsePage(text));
+      // Changes recovered from the last session, still unsaved.
+      tpl = parsePage(openFile.take(path) ?? text);
     });
   });
 
-  // Autosave.
-  const saver = debouncedSaver(500);
-  onDestroy(saver.flush);
+  // Saved when the user asks (Save, ⌘S in the app).
+  $effect(() => openFile.attach(workspace.location, path, save));
   $effect(() => {
     if (!tpl) return;
     const text = serializePage(tpl);
-    if (text === savedText) return;
-    const target = path;
-    saver.schedule(async () => {
-      await workspace.writeText(target, text);
-      savedText = text;
-    });
+    openFile.changed(text !== savedText ? text : null);
   });
+  async function save() {
+    if (!tpl) return;
+    const text = serializePage(tpl);
+    await workspace.writeText(path, text);
+    savedText = text;
+  }
 
   // Image sizes, needed by the layout.
   $effect(() => {

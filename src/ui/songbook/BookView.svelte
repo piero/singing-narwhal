@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy, tick } from 'svelte';
-  import { debouncedSaver, settleSaves } from '../workspace/saves';
+  import { openFile } from '../workspace/saves.svelte';
   import { getMeta, parseSong } from '../../core/song/chordpro';
   import type { FontRegistry } from '../../core/assets/fonts';
   import { impose, PAGE_SIZES } from '../../core/print/impose';
@@ -36,7 +36,7 @@
 
   let book = $state<Songbook | null>(null);
   let loadedPath = '';
-  let savedText = '';
+  let savedText = $state('');
   let built = $state<BuiltBook | null>(null);
   /** The fonts `built` was laid out with. */
   let builtWith: FontRegistry | null = null;
@@ -62,8 +62,9 @@
     const p = path;
     workspace.readText(p).then((t) => {
       loadedPath = p;
-      book = parseSongbook(t);
-      savedText = serializeSongbook(book);
+      savedText = serializeSongbook(parseSongbook(t));
+      // Changes recovered from the last session, still unsaved.
+      book = parseSongbook(openFile.take(p) ?? t);
     });
   });
 
@@ -75,16 +76,11 @@
     }
   });
 
-  // Rebuild and autosave after changes.
+  // Rebuild after changes.
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const saver = debouncedSaver(300);
-  onDestroy(() => {
-    clearTimeout(timer);
-    saver.flush();
-  });
+  onDestroy(() => clearTimeout(timer));
   $effect(() => {
     if (!book) return;
-    const text = serializeSongbook(book);
     const snapshot = $state.snapshot(book) as Songbook;
     void files; // rebuild when songs are edited
     const f = fonts; // and when installed fonts finish loading
@@ -93,16 +89,24 @@
       built = await buildSongbook(snapshot, f, loader);
       builtWith = f;
     }, 300);
-    if (loadedPath === path && text !== savedText) {
-      const target = loadedPath;
-      saver.schedule(async () => {
-        await workspace.writeText(target, text);
-        savedText = text;
-        status = t('song.saved');
-        onsaved?.();
-      });
-    }
   });
+
+  // Saved when the user asks (Save, ⌘S in the app).
+  $effect(() => openFile.attach(workspace.location, path, save));
+  $effect(() => {
+    if (!book || loadedPath !== path) return;
+    const text = serializeSongbook(book);
+    openFile.changed(text !== savedText ? text : null);
+    if (text !== savedText && status === t('song.saved')) status = '';
+  });
+  async function save() {
+    if (!book) return;
+    const text = serializeSongbook(book);
+    await workspace.writeText(path, text);
+    savedText = text;
+    status = t('song.saved');
+    onsaved?.();
+  }
 
   const sheets = $derived(built ? (view === 'sheets' ? built.sheets : impose(built.pages, { kind: 'single' })) : []);
 
@@ -210,7 +214,7 @@
 
   /** This songbook with its songs, pages, images and fonts, to move or share it. */
   async function exportZip() {
-    await settleSaves();
+    await openFile.settle();
     const { zip, missing } = await zipSongbook(workspace, path);
     if ((await saveFile(`${path.split('/').pop()!.replace(/\.songbook\.ya?ml$/i, '')}.zip`, zip, 'application/zip')) && missing.length)
       status = t('book.zipMissing', { files: missing.join(', ') });

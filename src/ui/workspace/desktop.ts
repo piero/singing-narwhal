@@ -5,8 +5,20 @@
 import { t } from '../app/i18n.svelte';
 import { fromBase64, MAX_RECENT, RECENT_KEY, toBase64, type Workspace } from './workspace';
 
+export interface MenuItem {
+  id?: string;
+  label?: string;
+  /** Shortcut with ⌘ (Ctrl elsewhere): 'q'; an uppercase letter adds ⇧. */
+  key?: string;
+  separator?: boolean;
+}
+
 export interface Tiny {
   api: { call(method: string, params?: object): Promise<unknown> };
+  quit(): void;
+  /** The menu bar; a { role: 'app' } block adds items to the macOS application menu. */
+  menu?: { set(menus: { role?: string; standard?: boolean; title?: string; items: MenuItem[] }[]): Promise<unknown>; on(fn: (id: string) => void): () => void };
+  win?: { setTitle(title: string): Promise<unknown>; show(): void };
   /** Persistent settings, kept by TinyJS in ~/Library/Application Support/<app id>/. */
   store: { get(key: string): Promise<unknown>; set(key: string, value: unknown): Promise<void> };
   app: {

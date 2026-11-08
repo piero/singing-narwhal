@@ -133,8 +133,10 @@ imported. A document holding many songs is imported as one song for now.
    key is guessed from the chords and shown in grey italics; type a key to set it. The key
    decides whether transposing writes sharps or flats (E♭ rather than D♯ in B♭).
 
-Changes are saved automatically. If a save fails (for example, no space left), a red
-error bar says so.
+Changes are written when you click **Save** above the editor (or press ⌘S, Ctrl+S on
+Windows and Linux); until then the bar says *Unsaved changes*. Opening another file,
+switching folder or quitting asks first whether to save them. If a save fails (for
+example, no space left), a red error bar says so.
 
 ### Chord diagrams
 
