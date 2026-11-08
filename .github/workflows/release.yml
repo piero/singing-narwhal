@@ -15,8 +15,12 @@ permissions:
   contents: read
 
 env:
-  # The TinyJS release the app is built with; both installers read it.
-  TINYJS_VERSION: v0.53.1
+  # The TinyJS release the app is built with.
+  TINYJS_VERSION: v0.72.0
+  # Release files are downloaded through the GitHub API (gh release download), not the
+  # TinyJS installers: github.com/<repo>/releases/download/ links can fail with 504 for
+  # hours on end, while the API keeps serving the same files.
+  GH_TOKEN: ${{ github.token }}
 
 jobs:
   macos:
@@ -39,7 +43,22 @@ jobs:
       - run: npm run check
       - run: npm test
       - name: Install TinyJS
-        run: curl -fsSL https://tinyjs.app/install | sh
+        run: |
+          cd "$RUNNER_TEMP"
+          gh release download "$TINYJS_VERSION" -R tarwin/tinyjsapp -p tinyjs-macos-arm64.tar.gz -p checksums.txt
+          grep ' tinyjs-macos-arm64.tar.gz$' checksums.txt | shasum -a 256 -c -
+          mkdir -p ~/.tinyjs
+          tar -xzf tinyjs-macos-arm64.tar.gz -C ~/.tinyjs --strip-components 1
+      # The universal build adds the Intel txiki.js runtime, which tinyjs would download
+      # itself; put it in tinyjs's cache instead. tinyjs checks it against its pinned sha256.
+      - name: Fetch the Intel runtime
+        run: |
+          txiki="v$(~/.tinyjs/tinyjs version | sed -E 's/.*txiki\.js ([0-9.]+).*/\1/')"
+          cache=~/Library/Caches/tinyjs/txiki-"$txiki"
+          gh release download "$txiki" -R saghul/txiki.js -p txiki-macos-x86_64.zip -D "$RUNNER_TEMP"
+          unzip -q "$RUNNER_TEMP/txiki-macos-x86_64.zip" -d "$RUNNER_TEMP"
+          mkdir -p "$cache"
+          mv "$RUNNER_TEMP/txiki-macos-x86_64/tjs" "$cache/tjs-x86_64"
       # One app for Apple Silicon and Intel Macs; ad-hoc signed (no Developer ID).
       - run: ~/.tinyjs/tinyjs build --universal --dmg
       # The file names carry no version, so that the README can link to
@@ -66,8 +85,16 @@ jobs:
           node-version: lts/*
           cache: npm
       - run: npm ci
+      # The installer verifies nothing when given a local zip, so check it here.
       - name: Install TinyJS
         run: |
+          Set-Location $env:RUNNER_TEMP
+          gh release download $env:TINYJS_VERSION -R tarwin/tinyjsapp -p tinyjs-windows-x86_64.zip -p checksums.txt
+          $line = Get-Content checksums.txt | Where-Object { $_ -match ' tinyjs-windows-x86_64\.zip$' }
+          $expected = ($line -split '\s+')[0]
+          $actual = (Get-FileHash tinyjs-windows-x86_64.zip -Algorithm SHA256).Hash
+          if ($actual -ne $expected.ToUpper()) { throw "checksum verification FAILED (expected $expected, got $actual)" }
+          $env:TINYJS_INSTALL_ZIP = Join-Path $env:RUNNER_TEMP tinyjs-windows-x86_64.zip
           irm https://tinyjs.app/install.ps1 | iex
           # The installer adds itself to the user PATH, which this shell doesn't see.
           Add-Content $env:GITHUB_PATH "$env:LOCALAPPDATA\tinyjs"
@@ -101,12 +128,17 @@ jobs:
           node-version: lts/*
           cache: npm
       - run: npm ci
-      # The installer checks that the system WebKitGTK, which the app runs in, is there.
+      # WebKitGTK is the system web view the app runs in.
       - name: Install TinyJS
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-0
-          curl -fsSL https://tinyjs.app/install | sh
+          cd "$RUNNER_TEMP"
+          asset=tinyjs-linux-${{ matrix.arch }}.tar.gz
+          gh release download "$TINYJS_VERSION" -R tarwin/tinyjsapp -p "$asset" -p checksums.txt
+          grep " $asset\$" checksums.txt | sha256sum -c -
+          mkdir -p ~/.tinyjs
+          tar -xzf "$asset" -C ~/.tinyjs --strip-components 1
       - run: ~/.tinyjs/tinyjs build
       # A portable folder: narwhal (the app, with its pages inside), launcher and
       # icon.png, which must stay next to it. A tarball keeps them executable.
