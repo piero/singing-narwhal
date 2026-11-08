@@ -670,7 +670,7 @@
   <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
   {#if navOpen}<div class="scrim" onclick={() => (navOpen = false)}></div>{/if}
   <aside>
-    <div class="brand"><img src={LOGO} alt="" />{__APP_NAME__}</div>
+    <div class="brand"><img src={LOGO} alt="" />{__APP_NAME__}<span class="version">v{__APP_VERSION__}</span></div>
     <div class="ws" data-tour="workspace">
       {#if ready}
         <div class="ws-card" class:browser={workspace.kind === 'browser'}>
@@ -967,6 +967,13 @@
   .brand img {
     width: 34px;
     height: 34px;
+  }
+  .brand .version {
+    align-self: flex-end;
+    margin-bottom: 9px;
+    font-size: 11px;
+    font-weight: 400;
+    opacity: 0.6;
   }
   .ws {
     display: flex;
