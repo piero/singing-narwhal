@@ -160,7 +160,7 @@ the picker shows it as *(not available)* and the text is laid out in Liberation 
 | Zip and `.odt` | fflate | unzips `.odt`, makes and reads `.zip` backups |
 | Songbooks and pages | YAML (`yaml`) | readable and editable by hand |
 | Songs | ChordPro | existing plain-text format that already anchors chords to letters |
-| Desktop | TinyJS (system WebKit + txiki.js backend) | about 6 MB, no Electron |
+| Desktop | TinyJS (system WebKit + txiki.js backend) | no Electron: a universal Mac app is about 18 MB, its disk image about 9 MB |
 | CLI | Node + tsx | runs the TypeScript sources directly |
 | Tests | Vitest | unit tests of `src/core` |
 | Fonts | Liberation Serif, Sans, Mono (SIL OFL) | LibreOffice's defaults, metric-compatible with Times New Roman, Arial and Courier, so imported documents measure exactly |

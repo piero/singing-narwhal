@@ -6,7 +6,8 @@ How to run, test and change Singing Narwhal. For how the pieces fit together, re
 ## Requirements
 
 - Node.js 20.19+ or 22.12+ (required by Vite 8) and npm.
-- For the desktop app: macOS and the [TinyJS](https://tinyjs.app/) CLI.
+- For the desktop app: macOS and the [TinyJS](https://tinyjs.app/) CLI, at the version the
+  release workflow pins (`TINYJS_VERSION` in `.github/workflows/release.yml`, now v0.72.0).
 
 ## Run it
 
@@ -44,7 +45,7 @@ Options: `--page A4|A5|A6|Letter`, `--imposition single|copies|2up|booklet`,
 
 ```sh
 tinyjs dev           # runs the app against the Vite dev server (npm run dev)
-tinyjs build --dmg   # builds the app and a .dmg into .build/
+tinyjs build --dmg   # builds the app and a .dmg into dist/
 ```
 
 Configuration is in `tinyjs.json`; the backend is `tiny/backend/main.ts`, which TinyJS
@@ -88,7 +89,13 @@ Both are unsigned, so macOS asks users to allow the app in System Settings → P
 Security, and Windows shows a SmartScreen warning; the release notes explain both. Signing
 needs an Apple Developer ID (and notarization) and a Windows code-signing certificate,
 stored as repository secrets. The workflow pins the TinyJS version (`TINYJS_VERSION`);
-update it there when upgrading TinyJS locally. To try the builds without releasing, run
+update it there when upgrading TinyJS locally. It downloads TinyJS, and the Intel txiki.js
+runtime for the universal Mac build, with `gh release download` rather than the TinyJS
+installers: GitHub's `releases/download/` links can fail with 504 errors for hours, while the
+API keeps serving the same files. When `tinyjs update` can't reach GitHub for the same
+reason, install by hand: `gh release download <version> -R tarwin/tinyjsapp -p
+tinyjs-macos-arm64.tar.gz`, then unpack it over `~/.tinyjs` (`tar -xzf <file> -C ~/.tinyjs
+--strip-components 1`). To try the builds without releasing, run
 the workflow by hand (Actions → Release → Run workflow) and download them from the run's
 artifacts. Windows support in TinyJS is in beta, and the Windows app is tested only by hand.
 
@@ -245,7 +252,9 @@ like the rest of the project.
   `src/ui/app/i18n.svelte.ts` and an entry in `LANGS`.
 - **Fonts:** bundled fonts must allow redistribution (e.g. SIL OFL); add their licence
   next to them in `public/fonts/`.
-- **Build output:** `dist/` and `.build/` (TinyJS) are not committed.
+- **Build output:** `dist/` and `.build/` (TinyJS's working folder) are not committed.
+  `tinyjs build` moves the web build into `dist/frontend/`, so run `npm run build` again
+  before publishing `dist/` as the website.
 
 ## Roadmap
 
