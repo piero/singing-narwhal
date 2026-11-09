@@ -249,8 +249,9 @@ jobs:
               exit 1
             fi
           done
+          # The branch by its full name: a bare "updates" can also match a tag of that name.
           cd ..
-          if git fetch --depth 1 origin updates; then
+          if git fetch --depth 1 origin refs/heads/updates; then
             git switch -c updates FETCH_HEAD
           else
             git switch --orphan updates
@@ -260,4 +261,4 @@ jobs:
           git -c user.name='github-actions[bot]' \
               -c user.email='41898283+github-actions[bot]@users.noreply.github.com' \
               commit -m "Updates: $GITHUB_REF_NAME"
-          git push origin updates
+          git push origin HEAD:refs/heads/updates
