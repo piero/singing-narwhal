@@ -235,8 +235,17 @@ jobs:
             cp beta-manifest.json manifest.json
             manifests+=(manifest.json)
           fi
-          # A dead download link would make the updater fail on users' computers.
-          jq -r '.. | .url? // empty' beta-manifest.json | sort -u | xargs -n1 curl -fsSIL --retry 5 -o /dev/null
+          # A dead download link would make the updater fail on users' computers. Each one
+          # must name a file of this release; they are checked through the API rather than
+          # fetched, since releases/download/ links often fail with 504 for a while.
+          assets="$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')"
+          for url in $(jq -r '.. | .url? // empty' beta-manifest.json | sort -u); do
+            if [[ "$url" != "https://github.com/$GITHUB_REPOSITORY/releases/download/$GITHUB_REF_NAME/"* ]] ||
+               ! grep -qxF "${url##*/}" <<< "$assets"; then
+              echo "::error::$url is not a file of release $GITHUB_REF_NAME"
+              exit 1
+            fi
+          done
           if ! gh release view updates --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
             gh release create updates --repo "$GITHUB_REPOSITORY" --prerelease \
               --title 'Update manifests' \
