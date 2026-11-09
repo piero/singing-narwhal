@@ -14,7 +14,11 @@ export interface MenuItem {
 }
 
 export interface Tiny {
-  api: { call(method: string, params?: object): Promise<unknown> };
+  api: {
+    call(method: string, params?: object): Promise<unknown>;
+    /** Events pushed by TinyJS or the backend; returns the unsubscribe. */
+    on(event: string, fn: (data: any) => void): () => void;
+  };
   quit(): void;
   /** The menu bar; a { role: 'app' } block adds items to the macOS application menu. */
   menu?: { set(menus: { role?: string; standard?: boolean; title?: string; items: MenuItem[] }[]): Promise<unknown>; on(fn: (id: string) => void): () => void };
@@ -25,6 +29,11 @@ export interface Tiny {
     paths(): Promise<{ home: string; documents: string; data: string }>;
     /** Files opened with the app from Finder or dropped on its Dock icon (packaged app only). */
     onOpenFiles(fn: (paths: string[]) => void): void;
+    /**
+     * Updates from the manifest at tinyjs.json "update.url" (packaged app only). install()
+     * downloads the new version, checks it, swaps it in and relaunches the app.
+     */
+    update?: { check(): Promise<UpdateInfo & { available: boolean }>; install(): Promise<unknown> };
   };
   /** The system's light or dark setting, read by the launcher (also on Windows and Linux). */
   theme?: { get(): Promise<{ dark: boolean } | null>; on(fn: (dark: boolean) => void): () => void };
@@ -32,7 +41,16 @@ export interface Tiny {
     pickFolder(): Promise<string | null>;
     saveFile(o?: { types?: string[] }): Promise<string | null>;
     openFiles(o?: { types?: string[] }): Promise<string[] | null>;
+    alert(message: string, o?: { detail?: string; ok?: string }): Promise<unknown>;
+    confirm(message: string, o?: { detail?: string; ok?: string; cancel?: string }): Promise<boolean>;
   };
+}
+
+/** A version on offer: sent by TinyJS's own checks as the 'update-available' event, or from update.check(). */
+export interface UpdateInfo {
+  current: string;
+  latest: string | null;
+  notes: string | null;
 }
 
 export function tiny(): Tiny | undefined {

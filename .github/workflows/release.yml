@@ -1,9 +1,12 @@
 # Desktop app builds for a release. Pushing a version tag (`npm run release`, then
 # `git push --follow-tags`; see "Releases" in docs/DEVELOPMENT.md) builds a universal
 # macOS .dmg, a portable Windows .zip and Linux tarballs (x86_64 and arm64), all
-# unsigned, and publishes them as a GitHub release. Run it by hand (Actions → Release →
-# Run workflow) to test the builds: they are kept as workflow artifacts, and no release
-# is made.
+# unsigned, and publishes them as a GitHub release. A pre-release tag (v0.7.0-beta.1)
+# makes a GitHub pre-release, for the beta channel. Each build also makes the archive the
+# app downloads to update itself (`tinyjs publish`), and the release job then points the
+# update manifests, kept in the release tagged `updates`, at the new version (see
+# "Updates" in docs/DEVELOPMENT.md). Run it by hand (Actions → Release → Run workflow) to
+# test the builds: they are kept as workflow artifacts, and no release is made.
 name: Release
 
 on:
@@ -59,18 +62,24 @@ jobs:
           unzip -q "$RUNNER_TEMP/txiki-macos-x86_64.zip" -d "$RUNNER_TEMP"
           mkdir -p "$cache"
           mv "$RUNNER_TEMP/txiki-macos-x86_64/tjs" "$cache/tjs-x86_64"
-      # One app for Apple Silicon and Intel Macs; ad-hoc signed (no Developer ID).
-      - run: ~/.tinyjs/tinyjs build --universal --dmg
+      # One app for Apple Silicon and Intel Macs; ad-hoc signed (no Developer ID). Also
+      # zips it for updates: dist/publish/narwhal-<version>.zip and its manifest.json.
+      - run: ~/.tinyjs/tinyjs publish --universal --dmg
       # The file names carry no version, so that the README can link to
       # releases/latest/download/<name>.
       - name: Name the disk image
         run: |
           version="$(node -p "require('./package.json').version")"
           mv dist/narwhal-"$version".dmg Singing-Narwhal-macos.dmg
+          mv dist/publish/narwhal-* .
+          mv dist/publish/manifest.json manifest-macos.json
       - uses: actions/upload-artifact@v4
         with:
           name: macos
-          path: Singing-Narwhal-macos.dmg
+          path: |
+            Singing-Narwhal-macos.dmg
+            narwhal-*
+            manifest-macos.json
           if-no-files-found: error
 
   windows:
@@ -98,7 +107,8 @@ jobs:
           irm https://tinyjs.app/install.ps1 | iex
           # The installer adds itself to the user PATH, which this shell doesn't see.
           Add-Content $env:GITHUB_PATH "$env:LOCALAPPDATA\tinyjs"
-      - run: tinyjs build
+      # Builds dist/ and the update archive, dist/publish/narwhal-<version>-win.zip.
+      - run: tinyjs publish
       # A portable folder: narwhal.exe (the app, with its pages inside) and
       # launcher.exe, which must stay next to it.
       - name: Zip the app
@@ -106,10 +116,15 @@ jobs:
           New-Item -ItemType Directory 'Singing Narwhal' | Out-Null
           Copy-Item dist/narwhal.exe, dist/launcher.exe 'Singing Narwhal'
           Compress-Archive -Path 'Singing Narwhal' -DestinationPath Singing-Narwhal-windows.zip
+          Move-Item dist/publish/narwhal-* .
+          Move-Item dist/publish/manifest.json manifest-windows.json
       - uses: actions/upload-artifact@v4
         with:
           name: windows
-          path: Singing-Narwhal-windows.zip
+          path: |
+            Singing-Narwhal-windows.zip
+            narwhal-*
+            manifest-windows.json
           if-no-files-found: error
 
   linux:
@@ -139,7 +154,8 @@ jobs:
           grep " $asset\$" checksums.txt | sha256sum -c -
           mkdir -p ~/.tinyjs
           tar -xzf "$asset" -C ~/.tinyjs --strip-components 1
-      - run: ~/.tinyjs/tinyjs build
+      # Builds dist/ and the update archive, dist/publish/narwhal-<version>-linux-<arch>.tar.gz.
+      - run: ~/.tinyjs/tinyjs publish
       # A portable folder: narwhal (the app, with its pages inside), launcher and
       # icon.png, which must stay next to it. A tarball keeps them executable.
       - name: Pack the app
@@ -147,10 +163,15 @@ jobs:
           mkdir 'Singing Narwhal'
           cp dist/narwhal dist/launcher dist/icon.png 'Singing Narwhal'
           tar -czf Singing-Narwhal-linux-${{ matrix.arch }}.tar.gz 'Singing Narwhal'
+          mv dist/publish/narwhal-* .
+          mv dist/publish/manifest.json manifest-linux-${{ matrix.arch }}.json
       - uses: actions/upload-artifact@v4
         with:
           name: linux-${{ matrix.arch }}
-          path: Singing-Narwhal-linux-${{ matrix.arch }}.tar.gz
+          path: |
+            Singing-Narwhal-linux-${{ matrix.arch }}.tar.gz
+            narwhal-*
+            manifest-linux-${{ matrix.arch }}.json
           if-no-files-found: error
 
   release:
@@ -160,10 +181,13 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
+          path: release
           merge-multiple: true
       - name: Publish the release
+        working-directory: release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -184,9 +208,38 @@ jobs:
             next to it). Needs WebKitGTK 4.1: `sudo apt install libwebkit2gtk-4.1-0` on
             Debian/Ubuntu (24.04 or newer).
 
+          The `narwhal-*` files are the ones the app downloads to update itself.
+
           EOF
-          gh release create "$GITHUB_REF_NAME" Singing-Narwhal-* \
+          # v0.7.0-beta.1: a pre-release, which releases/latest/ and the README links skip.
+          prerelease=()
+          if [[ "$GITHUB_REF_NAME" == *-* ]]; then prerelease=(--prerelease); fi
+          gh release create "$GITHUB_REF_NAME" Singing-Narwhal-* narwhal-* \
             --repo "$GITHUB_REPOSITORY" \
             --title "Singing Narwhal ${GITHUB_REF_NAME#v}" \
             --notes-file notes.md \
-            --generate-notes
+            --generate-notes \
+            "${prerelease[@]}"
+      # The app checks for updates in the release tagged `updates`: betas (built with a
+      # pre-release version) in beta-manifest.json, other versions in manifest.json. A beta
+      # updates only beta-manifest.json; a release updates both, so beta users get it too
+      # (and, since it reads manifest.json, are back on the release channel).
+      - name: Update the update manifests
+        working-directory: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node ../scripts/update-manifest.mjs "$GITHUB_REF_NAME" manifest-*.json > beta-manifest.json
+          manifests=(beta-manifest.json)
+          if [[ "$GITHUB_REF_NAME" != *-* ]]; then
+            cp beta-manifest.json manifest.json
+            manifests+=(manifest.json)
+          fi
+          # A dead download link would make the updater fail on users' computers.
+          jq -r '.. | .url? // empty' beta-manifest.json | sort -u | xargs -n1 curl -fsSIL --retry 5 -o /dev/null
+          if ! gh release view updates --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release create updates --repo "$GITHUB_REPOSITORY" --prerelease \
+              --title 'Update manifests' \
+              --notes 'Not a release: the files the desktop app reads to find new versions (manifest.json for releases, beta-manifest.json for betas), kept up to date by the Release workflow.'
+          fi
+          gh release upload updates "${manifests[@]}" --repo "$GITHUB_REPOSITORY" --clobber

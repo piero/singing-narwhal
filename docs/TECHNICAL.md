@@ -486,7 +486,17 @@ esbuild and run by txiki.js).
 - `tinyjs build --dmg` produces a `.dmg` in `dist/`. By default it runs only on the CPU
   type of the Mac that built it; release builds use `--universal`. It is signed ad-hoc, so
   macOS warns about an unidentified developer unless a Developer ID is configured
-  (`signIdentity`). Updates are not set up yet.
+  (`signIdentity`).
+- Updates: `tinyjs.json` `"update"` points at a manifest in the GitHub release tagged
+  `updates` (`manifest.json`, or `beta-manifest.json` for pre-release versions; see
+  [Updates](DEVELOPMENT.md#updates)). TinyJS checks it 5 seconds after launch and once a
+  day (`"auto": "daily"`, packaged app only) and sends `update-available`; the app menu's
+  Check for Updates… calls `tiny.app.update.check()`. Either way `App.svelte` asks with a
+  native dialog, then about unsaved changes as for quitting, then calls
+  `tiny.app.update.install()`, which downloads the archive, checks its sha256 (and, on
+  macOS, its code signature), swaps it in place of the app and relaunches it. An app run
+  from where macOS put it in quarantine (not moved to Applications) can't be updated: the
+  error says to move it.
 - Releases are built by GitHub Actions when a version tag is pushed
   (`.github/workflows/release.yml`): a universal `.dmg` on a macOS runner and a portable
   `.zip` (`narwhal.exe` + `launcher.exe`, the page bundled inside the `.exe`) on a Windows

@@ -20,7 +20,7 @@
   import PageView from './ui/songbook/PageView.svelte';
   import SongView from './ui/song/SongView.svelte';
   import { BrowserWorkspace } from './ui/workspace/browser';
-  import { readAbsoluteFiles, tiny, TinyWorkspace } from './ui/workspace/desktop';
+  import { readAbsoluteFiles, tiny, TinyWorkspace, type UpdateInfo } from './ui/workspace/desktop';
   import { EXAMPLE_BOOK, exampleFiles } from './ui/workspace/examples';
   import { pickLocalFiles, saveFile, zipSongbook, zipWorkspace } from './ui/workspace/files';
   import { BrowserFolderWorkspace } from './ui/workspace/folder';
@@ -607,18 +607,66 @@
   $effect(() => {
     tiny()
       ?.menu?.set([
-        { role: 'app', standard: false, items: [{ id: 'quit', label: t('app.quit', { app: __APP_NAME__ }), key: 'q' }] },
+        {
+          role: 'app',
+          standard: false,
+          items: [
+            ...(tiny()?.app.update ? [{ id: 'update', label: t('update.check') }, { separator: true }] : []),
+            { id: 'quit', label: t('app.quit', { app: __APP_NAME__ }), key: 'q' },
+          ],
+        },
         { title: t('app.file'), items: [{ id: 'save', label: t('app.save'), key: 's' }] },
       ])
       .catch(() => {});
   });
   tiny()?.menu?.on(async (id) => {
     if (id === 'save') save().catch(() => {});
+    else if (id === 'update') checkForUpdate();
     else if (id === 'quit') {
       tiny()!.win?.show();
       if (await confirmLeave()) tiny()!.quit();
     }
   });
+
+  // Desktop: updates. TinyJS checks the update manifest at launch and once a day (tinyjs.json
+  // "update") and reports a newer version with 'update-available'; the app menu's Check for
+  // Updates… asks at once. Installing relaunches the app, so unsaved changes are dealt with
+  // first, as when quitting.
+  tiny()?.api.on('update-available', (info: UpdateInfo) => offerUpdate(info));
+
+  async function checkForUpdate() {
+    const tj = tiny()!;
+    const app = __APP_NAME__;
+    try {
+      const info = await tj.app.update!.check();
+      if (info.available) await offerUpdate(info);
+      else await tj.dialog.alert(t('update.none', { app }), { detail: t('update.noneDetail', { current: info.current }) });
+    } catch (e) {
+      await tj.dialog.alert(t('update.error', { app }), { detail: (e as Error).message });
+    }
+  }
+
+  let offering = false;
+  async function offerUpdate({ current, latest, notes }: UpdateInfo) {
+    if (offering) return;
+    offering = true;
+    const tj = tiny()!;
+    const app = __APP_NAME__;
+    try {
+      const detail = t('update.detail', { current, app }) + (notes ? `\n\n${notes}` : '');
+      const ok = await tj.dialog.confirm(t('update.available', { app, latest: latest ?? '' }), { detail, ok: t('update.install'), cancel: t('update.later') });
+      if (!ok) return;
+      tj.win?.show();
+      if (!(await confirmLeave())) return;
+      notice = t('update.installing', { app });
+      await tj.app.update!.install();
+    } catch (e) {
+      notice = '';
+      await tj.dialog.alert(t('update.error', { app }), { detail: (e as Error).message });
+    } finally {
+      offering = false;
+    }
+  }
 
   // Web: the browser asks before leaving a page with unsaved changes.
   function leaving(e: BeforeUnloadEvent) {

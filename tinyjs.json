@@ -12,5 +12,9 @@
     "dev": "npm run dev",
     "devUrl": "http://127.0.0.1:5173"
   },
-  "fileExtensions": ["cho", "chordpro", "odt", "odg"]
+  "fileExtensions": ["cho", "chordpro", "odt", "odg"],
+  "update": {
+    "url": "https://github.com/piero/singing-narwhal/releases/download/updates/manifest.json",
+    "auto": "daily"
+  }
 }

@@ -105,6 +105,55 @@ it into `tinyjs.json` (where the desktop app reads it), then commits "Release X.
 tags it `vX.Y.Z`. Don't edit the version by hand. To undo a release that hasn't been
 pushed: `git tag -d vX.Y.Z && git reset --hard HEAD~1`.
 
+### Betas
+
+A beta is a release with a pre-release version, made from any branch, so it can be tried
+(updates included) without touching `main`:
+
+```sh
+npm run release -- 0.7.0-beta.1   # or: npm run release -- prerelease --preid beta
+git push --follow-tags            # pushes the branch and the tag
+```
+
+The workflow publishes it as a GitHub pre-release: `releases/latest/` and the README links
+skip it, so only people who download it from the releases page get it. Versions are
+ordered by [semantic versioning](https://semver.org): `0.7.0-beta.1` < `0.7.0-beta.2` <
+`0.7.0`.
+
+### Updates
+
+The desktop app updates itself from a manifest named in `tinyjs.json` (`"update"`). Each
+platform's build runs `tinyjs publish`, which makes the archive the app downloads
+(`narwhal-X.Y.Z.zip` for macOS, `-win.zip`, `-linux-<arch>.tar.gz`) and a manifest for that
+platform; the archives are attached to the release, and `scripts/update-manifest.mjs`
+merges the manifests into one that points at them. The workflow then uploads it to the
+GitHub release tagged `updates`, a pre-release that holds only the manifests (created by the
+first release that needs it):
+
+- `manifest.json`, checked by release versions: replaced by each release.
+- `beta-manifest.json`, checked by betas: replaced by each beta *and* each release, so
+  beta users are offered the release too. Once they install it they check `manifest.json`
+  again, and stay on releases until they install another beta by hand.
+
+The channel is fixed when the app is built: `scripts/sync-version.mjs` points
+`tinyjs.json` at `beta-manifest.json` for a pre-release version and at `manifest.json`
+otherwise. Version 0.6.4 and earlier don’t check for updates: their users install the
+first version that does by hand.
+
+To try an update on your Mac without publishing anything, serve the manifest yourself
+(the updater accepts `http://` only for `127.0.0.1` and `localhost`). Don't commit these
+changes to `tinyjs.json`:
+
+1. In `tinyjs.json`, set `"update"` `"url"` to `http://127.0.0.1:8000/manifest.json`.
+2. `tinyjs build`, then copy `dist/Singing Narwhal.app` to `/Applications` (the next build
+   replaces `dist/`).
+3. Raise `"version"` in `tinyjs.json` (e.g. `0.7.1`), then `tinyjs publish` and
+   `cd dist/publish && python3 -m http.server 8000`.
+4. Open the copy in `/Applications`: after a few seconds it offers the new version (or use
+   Check for Updates… in the app menu). Installing replaces it and relaunches it; the About
+   panel shows the new version.
+5. `git checkout tinyjs.json`.
+
 ## Code structure
 
 ```
@@ -183,6 +232,7 @@ public/narwhal-logo-256.png logo for the web page (favicon, sidebar, welcome scr
 assets/narwhal-logo.png     logo master; the desktop app's icon (tinyjs.json "icon")
 assets/Credits.html        text of the macOS About panel
 scripts/sync-version.mjs   copies the release version into tinyjs.json (npm run release)
+scripts/update-manifest.mjs merges the platforms' update manifests (release workflow)
 docs/                      technical overview and this guide
 ```
 
