@@ -126,9 +126,11 @@ The desktop app updates itself from a manifest named in `tinyjs.json` (`"update"
 platform's build runs `tinyjs publish`, which makes the archive the app downloads
 (`narwhal-X.Y.Z.zip` for macOS, `-win.zip`, `-linux-<arch>.tar.gz`) and a manifest for that
 platform; the archives are attached to the release, and `scripts/update-manifest.mjs`
-merges the manifests into one that points at them. The workflow then uploads it to the
-GitHub release tagged `updates`, a pre-release that holds only the manifests (created by the
-first release that needs it):
+merges the manifests into one that points at them. The workflow then commits it to the
+`updates` branch, which holds only the manifests and has no history in common with `main`
+(the first release creates it). The app reads them from `raw.githubusercontent.com`:
+`releases/download/` links, the other choice, often fail with 504 errors for a while, and
+the manifest is the one file every update starts from.
 
 - `manifest.json`, checked by release versions: replaced by each release.
 - `beta-manifest.json`, checked by betas: replaced by each beta *and* each release, so

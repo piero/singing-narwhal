@@ -57,6 +57,11 @@ export function tiny(): Tiny | undefined {
   return (window as unknown as { tiny?: Tiny }).tiny;
 }
 
+/** The message of an error from TinyJS, which rejects calls with a string rather than an Error. */
+export function errorText(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
+}
+
 /** Workspace folder created in ~/Documents on the desktop app's first launch. */
 const DEFAULT_FOLDER = 'SingingNarwhal';
 
@@ -94,7 +99,9 @@ export class TinyWorkspace implements Workspace {
     return { ws: new TinyWorkspace(dir), notice };
   }
   private call<T>(method: string, params: object) {
-    return tiny()!.api.call(method, { dir: this.dir, ...params }) as Promise<T>;
+    return tiny()!.api.call(method, { dir: this.dir, ...params }).catch((e) => {
+      throw new Error(errorText(e));
+    }) as Promise<T>;
   }
   list() {
     return this.call<string[]>('list', {});

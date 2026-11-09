@@ -20,7 +20,7 @@
   import PageView from './ui/songbook/PageView.svelte';
   import SongView from './ui/song/SongView.svelte';
   import { BrowserWorkspace } from './ui/workspace/browser';
-  import { readAbsoluteFiles, tiny, TinyWorkspace, type UpdateInfo } from './ui/workspace/desktop';
+  import { errorText, readAbsoluteFiles, tiny, TinyWorkspace, type UpdateInfo } from './ui/workspace/desktop';
   import { EXAMPLE_BOOK, exampleFiles } from './ui/workspace/examples';
   import { pickLocalFiles, saveFile, zipSongbook, zipWorkspace } from './ui/workspace/files';
   import { BrowserFolderWorkspace } from './ui/workspace/folder';
@@ -634,7 +634,7 @@
       if (info.available) await offerUpdate(info);
       else await tj.dialog.alert(t('update.none', { app }), { detail: t('update.noneDetail', { current: info.current }) });
     } catch (e) {
-      await tj.dialog.alert(t('update.error', { app }), { detail: (e as Error).message });
+      await tj.dialog.alert(t('update.error', { app }), { detail: errorText(e) });
     }
   }
 
@@ -654,7 +654,7 @@
       await tj.app.update!.install();
     } catch (e) {
       notice = '';
-      await tj.dialog.alert(t('update.error', { app }), { detail: (e as Error).message });
+      await tj.dialog.alert(t('update.error', { app }), { detail: errorText(e) });
     } finally {
       offering = false;
     }

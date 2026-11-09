@@ -4,8 +4,8 @@
 # unsigned, and publishes them as a GitHub release. A pre-release tag (v0.7.0-beta.1)
 # makes a GitHub pre-release, for the beta channel. Each build also makes the archive the
 # app downloads to update itself (`tinyjs publish`), and the release job then points the
-# update manifests, kept in the release tagged `updates`, at the new version (see
-# "Updates" in docs/DEVELOPMENT.md). Run it by hand (Actions → Release → Run workflow) to
+# update manifests, kept on the `updates` branch, at the new version (see "Updates" in
+# docs/DEVELOPMENT.md). Run it by hand (Actions → Release → Run workflow) to
 # test the builds: they are kept as workflow artifacts, and no release is made.
 name: Release
 
@@ -220,10 +220,13 @@ jobs:
             --notes-file notes.md \
             --generate-notes \
             "${prerelease[@]}"
-      # The app checks for updates in the release tagged `updates`: betas (built with a
-      # pre-release version) in beta-manifest.json, other versions in manifest.json. A beta
-      # updates only beta-manifest.json; a release updates both, so beta users get it too
-      # (and, since it reads manifest.json, are back on the release channel).
+      # The app checks for updates on the `updates` branch, through raw.githubusercontent.com
+      # (releases/download/ links fail with 504 too often for a file every update starts
+      # from): betas (built with a pre-release version) in beta-manifest.json, other
+      # versions in manifest.json. A beta updates only beta-manifest.json; a release updates
+      # both, so beta users get it too (and, since it reads manifest.json, are back on the
+      # release channel). The branch holds only these files, with no history in common
+      # with main; the first release creates it.
       - name: Update the update manifests
         working-directory: release
         env:
@@ -246,9 +249,15 @@ jobs:
               exit 1
             fi
           done
-          if ! gh release view updates --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
-            gh release create updates --repo "$GITHUB_REPOSITORY" --prerelease \
-              --title 'Update manifests' \
-              --notes 'Not a release: the files the desktop app reads to find new versions (manifest.json for releases, beta-manifest.json for betas), kept up to date by the Release workflow.'
+          cd ..
+          if git fetch --depth 1 origin updates; then
+            git switch -c updates FETCH_HEAD
+          else
+            git switch --orphan updates
           fi
-          gh release upload updates "${manifests[@]}" --repo "$GITHUB_REPOSITORY" --clobber
+          for f in "${manifests[@]}"; do cp "release/$f" .; done
+          git add "${manifests[@]}"
+          git -c user.name='github-actions[bot]' \
+              -c user.email='41898283+github-actions[bot]@users.noreply.github.com' \
+              commit -m "Updates: $GITHUB_REF_NAME"
+          git push origin updates

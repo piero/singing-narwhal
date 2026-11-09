@@ -486,8 +486,9 @@ esbuild and run by txiki.js).
   type of the Mac that built it; release builds use `--universal`. It is signed ad-hoc, so
   macOS warns about an unidentified developer unless a Developer ID is configured
   (`signIdentity`).
-- Updates: `tinyjs.json` `"update"` points at a manifest in the GitHub release tagged
-  `updates` (`manifest.json`, or `beta-manifest.json` for pre-release versions; see
+- Updates: `tinyjs.json` `"update"` points at a manifest on the `updates` branch, read
+  from `raw.githubusercontent.com` (`manifest.json`, or `beta-manifest.json` for
+  pre-release versions; see
   [Updates](DEVELOPMENT.md#updates)). TinyJS checks it 5 seconds after launch and once a
   day (`"auto": "daily"`, packaged app only) and sends `update-available`; the app menu's
   Check for Updates… (in the Help menu on Windows and Linux, which have no application
