@@ -3,10 +3,10 @@
   import { isFontFile, type FontRegistry } from './core/assets/fonts';
   import { slugify } from './core/import';
   import { serializePage, starterTemplate } from './core/songbook/pages';
-  import { defaultSongbook, serializeSongbook } from './core/songbook/songbook';
+  import { defaultSongbook, parseSongbook, serializeSongbook } from './core/songbook/songbook';
   import { tick } from 'svelte';
   import { loadFonts, localFontsSupported, offerInstalledFonts } from './ui/app/fonts.svelte';
-  import { deleteFiles, renameFile, renameSong, songbookIndex } from './ui/workspace/fileops';
+  import { deleteFiles, renameFile, renameSong, renameSongbook, songbookIndex } from './ui/workspace/fileops';
   import { openFile } from './ui/workspace/saves.svelte';
   import BookView from './ui/songbook/BookView.svelte';
   import ChordLibraryView from './ui/chords/ChordLibraryView.svelte';
@@ -91,13 +91,19 @@
     usedIn = await songbookIndex(workspace, files);
   }
 
+  /** Read the title of a song or songbook, shown in the sidebar in place of its file name. */
+  function loadTitle(f: string) {
+    workspace
+      .readText(f)
+      .then((text) => (titles[f] = isSong(f) ? getMeta(parseSong(text), 'title') || f.split('/').pop()! : parseSongbook(text).title))
+      .catch(() => {});
+  }
+
   async function refresh() {
     files = await workspace.list();
     selected = selected.filter((f) => files.includes(f));
     refreshIndex();
-    for (const f of files.filter(isSong)) {
-      workspace.readText(f).then((text) => (titles[f] = getMeta(parseSong(text), 'title') || f.split('/').pop()!));
-    }
+    for (const f of files.filter((f) => isSong(f) || isSongbook(f))) loadTitle(f);
     // Reload fonts when the workspace's font files change.
     const key = workspace.name + '|' + files.filter(isFontFile).join('|');
     if (key !== fontKey) {
@@ -444,13 +450,14 @@
       .filter((f) => !onlyUnused || unused(f))
       .sort((a, b) => (titles[a] ?? a).localeCompare(titles[b] ?? b)),
   );
-  const books = $derived(files.filter(isSongbook));
+  const books = $derived(files.filter(isSongbook).sort((a, b) => label(a).localeCompare(label(b))));
   const pages = $derived(files.filter(isPage).filter((f) => !onlyUnused || unused(f)));
   const unusedCount = $derived(files.filter((f) => (isSong(f) || isPage(f)) && unused(f)).length);
   /** The songbook open in the editor, whose songs and pages are marked in the sidebar. */
   const openBook = $derived(current && isSongbook(current) ? current : null);
   const baseName = (f: string) => f.split('/').pop()!.replace(/\.(songbook|page)\.ya?ml$/i, '');
-  const label = (f: string) => (isSong(f) ? (titles[f] ?? baseName(f)) : isChordLibrary(f) ? libraryName(f) : baseName(f));
+  /** The name a file is shown by: a song's or songbook's title, else its file name. */
+  const label = (f: string) => (isSong(f) || isSongbook(f) ? titles[f] || baseName(f) : isChordLibrary(f) ? libraryName(f) : baseName(f));
   const libraries = $derived(chordLibraries(files));
 
   function openMenu(path: string, e: MouseEvent) {
@@ -484,16 +491,20 @@
 
   async function rename(path: string) {
     menu = null;
-    const value = prompt(isSong(path) ? t('prompt.newTitle') : t('prompt.newName'), label(path))?.trim();
+    const value = prompt(isSong(path) || isSongbook(path) ? t('prompt.newTitle') : t('prompt.newName'), label(path))?.trim();
     if (value) await renameTo(path, value);
   }
 
-  /** Rename a file (a song: its title, and its file to match), unless the name is the same. */
+  /** Rename a file (a song or songbook: its title, and its file to match), unless the name is the same. */
   async function renameTo(path: string, value: string) {
     if (!value || value === label(path)) return;
     await withEditorsClosed(async () => ({
       from: path,
-      to: isSong(path) ? await renameSong(workspace, files, path, value) : await renameFile(workspace, files, path, value),
+      to: isSong(path)
+        ? await renameSong(workspace, files, path, value)
+        : isSongbook(path)
+          ? await renameSongbook(workspace, files, path, value)
+          : await renameFile(workspace, files, path, value),
     }));
   }
 
@@ -513,7 +524,7 @@
         : t('confirm.deleteMany', { n: paths.length }) + '\n' + paths.slice(0, 12).map((p) => '• ' + label(p)).join('\n') + (paths.length > 12 ? '\n' + t('confirm.more', { n: paths.length - 12 }) : '');
     if (byBook.size) {
       msg += '\n\n' + t(paths.length === 1 ? 'confirm.deleteUsed' : 'confirm.deleteManyUsed') + '\n';
-      msg += [...byBook].map(([b, ps]) => '• ' + baseName(b) + (paths.length > 1 ? ': ' + names(ps, 6) : '')).join('\n');
+      msg += [...byBook].map(([b, ps]) => '• ' + label(b) + (paths.length > 1 ? ': ' + names(ps, 6) : '')).join('\n');
     }
     if (!confirm(msg)) return;
     const open = current;
@@ -540,7 +551,7 @@
   /** Tooltip of a song or page in the sidebar: its name and the songbooks including it. */
   function membership(f: string, text: string) {
     const books = usedIn[f] ?? [];
-    return text + '\n' + (books.length ? t('side.inBooks', { books: books.map(baseName).join(', ') }) : t('side.inNoBook'));
+    return text + '\n' + (books.length ? t('side.inBooks', { books: books.map(label).join(', ') }) : t('side.inNoBook'));
   }
   /** Open a file in the editor (null: none), once the open one's changes are saved or discarded. */
   async function go(path: string | null) {
@@ -774,7 +785,7 @@
     <div class="lists" data-tour="lists">
       <h3>{t('side.songbooks')} <button class="add" onclick={newBook} title={t('side.newSongbook')}>+</button></h3>
       <ul>
-        {#each books as f (f)}{@render item(f, '📖 ' + baseName(f))}{/each}
+        {#each books as f (f)}{@render item(f, '📖 ' + label(f))}{/each}
       </ul>
 
       <div class="tools">
@@ -878,7 +889,7 @@
       <div class="used-in" class:unused={!books.length}>
         {#if books.length}
           {t('side.inBooksLabel')}
-          {#each books as b (b)}<button onclick={() => go(b)}>📖 {baseName(b)}</button>{/each}
+          {#each books as b (b)}<button onclick={() => go(b)}>📖 {label(b)}</button>{/each}
         {:else}
           ○ {t('side.inNoBookHint')}
         {/if}
@@ -892,7 +903,11 @@
       {/key}
     {:else if current && isSongbook(current)}
       {#key current}
-        <BookView {workspace} path={current} {fonts} {files} onopen={go} onfileschanged={refresh} onsaved={refreshIndex} />
+        <BookView {workspace} path={current} {fonts} {files} onopen={go} onfileschanged={refresh}
+          onsaved={() => {
+            refreshIndex();
+            loadTitle(current!);
+          }} />
       {/key}
     {:else if current && isChordLibrary(current)}
       {#key current}

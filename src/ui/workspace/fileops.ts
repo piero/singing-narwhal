@@ -105,6 +105,13 @@ export async function renameSong(ws: Workspace, files: string[], path: string, t
   return moveFile(ws, files, path, target);
 }
 
+/** Retitle a songbook, and rename its file to match. Returns the new path. */
+export async function renameSongbook(ws: Workspace, files: string[], path: string, title: string): Promise<string> {
+  const book = parseSongbook(await ws.readText(path));
+  await ws.writeText(path, serializeSongbook({ ...book, title }));
+  return renameFile(ws, files, path, title);
+}
+
 /** Rename a songbook, page or chord library file, keeping its extension. Returns the new path. */
 export async function renameFile(ws: Workspace, files: string[], path: string, name: string): Promise<string> {
   const ext = /(\.(songbook|page)\.ya?ml|\.chords\.cho|\.[^./]+)$/i.exec(path)?.[0] ?? '';
