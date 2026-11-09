@@ -2,7 +2,7 @@
   "name": "narwhal",
   "title": "Singing Narwhal",
   "id": "org.narwhal.app",
-  "version": "0.6.4",
+  "version": "0.7.0-beta.1",
   "icon": "assets/narwhal-logo.png",
   "size": "1280x800",
   "backend": "tiny/backend/main.ts",
@@ -14,7 +14,7 @@
   },
   "fileExtensions": ["cho", "chordpro", "odt", "odg"],
   "update": {
-    "url": "https://github.com/piero/singing-narwhal/releases/download/updates/manifest.json",
+    "url": "https://github.com/piero/singing-narwhal/releases/download/updates/beta-manifest.json",
     "auto": "daily"
   }
 }
