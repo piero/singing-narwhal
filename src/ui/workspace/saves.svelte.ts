@@ -3,7 +3,7 @@
 // differs from what was last read or saved. The app shows it, saves on request (Save,
 // ⌘S) and asks before closing a file with unsaved changes.
 //
-// The desktop app can't always stop a quit (the window's close button), so it also keeps
+// The desktop app can't stop a quit (Quit, the window's close button), so it also keeps
 // the unsaved text aside, in Unsaved.json in its data folder, and offers it again at the
 // next launch.
 

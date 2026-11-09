@@ -563,7 +563,7 @@
     }
   }
 
-  // Asking what to do with unsaved changes before closing the file, or quitting.
+  // Asking what to do with unsaved changes before closing the file, or updating.
   type Answer = 'save' | 'discard' | 'cancel';
   let asking = $state<{ answer: (a: Answer) => void } | null>(null);
   function ask(): Promise<Answer> {
@@ -600,38 +600,30 @@
     tiny()?.win?.setTitle(title).catch(() => {});
   });
 
-  // Desktop: TinyJS has no hook to stop a quit, so the app menu gets a Quit item of its own
-  // with ⌘Q: placed above the stock one, it takes the shortcut, and asks about unsaved
-  // changes first. The window's close button still quits directly: the unsaved changes are
-  // then kept aside and opened again at the next launch (saves.svelte.ts).
+  // Desktop menus. Quit is the stock item: TinyJS has no hook to stop a quit, nor a way to
+  // remove that item, so unsaved changes are kept aside instead and opened again at the next
+  // launch (saves.svelte.ts). Check for Updates… goes in the application menu on macOS;
+  // Windows and Linux have none (TinyJS drops its items there), so it goes in Help.
   $effect(() => {
+    const update = tiny()?.app.update ? [{ id: 'update', label: t('update.check') }] : [];
+    const mac = navigator.platform.startsWith('Mac');
     tiny()
       ?.menu?.set([
-        {
-          role: 'app',
-          standard: false,
-          items: [
-            ...(tiny()?.app.update ? [{ id: 'update', label: t('update.check') }, { separator: true }] : []),
-            { id: 'quit', label: t('app.quit', { app: __APP_NAME__ }), key: 'q' },
-          ],
-        },
+        { role: 'app', standard: false, items: mac ? update : [] },
         { title: t('app.file'), items: [{ id: 'save', label: t('app.save'), key: 's' }] },
+        ...(!mac && update.length ? [{ role: 'help', items: update }] : []),
       ])
       .catch(() => {});
   });
-  tiny()?.menu?.on(async (id) => {
+  tiny()?.menu?.on((id) => {
     if (id === 'save') save().catch(() => {});
     else if (id === 'update') checkForUpdate();
-    else if (id === 'quit') {
-      tiny()!.win?.show();
-      if (await confirmLeave()) tiny()!.quit();
-    }
   });
 
   // Desktop: updates. TinyJS checks the update manifest at launch and once a day (tinyjs.json
-  // "update") and reports a newer version with 'update-available'; the app menu's Check for
+  // "update") and reports a newer version with 'update-available'; the menu item Check for
   // Updates… asks at once. Installing relaunches the app, so unsaved changes are dealt with
-  // first, as when quitting.
+  // first, as when closing a file.
   tiny()?.api.on('update-available', (info: UpdateInfo) => offerUpdate(info));
 
   async function checkForUpdate() {

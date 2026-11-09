@@ -436,11 +436,10 @@ app). Failed saves are reported in a red error bar.
   renaming, deleting other files, importing chords, loading the example) the app asks:
   **Save**, **Don't save** or **Cancel**. Deleting the open file discards its changes.
 - **Leaving the page** with unsaved changes triggers the browser's `beforeunload` warning.
-- **Quitting the desktop app:** TinyJS has no hook to veto a quit. The app adds its own
-  Quit item with ⌘Q to the application menu, above the stock one, so the shortcut reaches
-  it first; it asks about unsaved changes before calling `tiny.quit()`. The stock Quit
-  item (clicked with the mouse), the window's close button and logging out still quit
-  directly.
+- **Quitting the desktop app:** TinyJS has no hook to veto a quit, and the stock Quit item
+  in the application menu can't be removed (an item of the app's own would show as a
+  second Quit). So Quit (⌘Q), the window's close button and logging out quit directly,
+  without asking; the unsaved changes are kept aside, as below.
 - **Unsaved changes on the desktop:** since a quit can't always be stopped, the unsaved
   text of the open file is also written, a moment after each change, to `Unsaved.json` in
   the app's data folder (with the workspace folder, the file's path and the time), and
@@ -491,8 +490,9 @@ esbuild and run by txiki.js).
   `updates` (`manifest.json`, or `beta-manifest.json` for pre-release versions; see
   [Updates](DEVELOPMENT.md#updates)). TinyJS checks it 5 seconds after launch and once a
   day (`"auto": "daily"`, packaged app only) and sends `update-available`; the app menu's
-  Check for Updates… calls `tiny.app.update.check()`. Either way `App.svelte` asks with a
-  native dialog, then about unsaved changes as for quitting, then calls
+  Check for Updates… (in the Help menu on Windows and Linux, which have no application
+  menu) calls `tiny.app.update.check()`. Either way `App.svelte` asks with a native dialog,
+  then about unsaved changes as before closing a file, then calls
   `tiny.app.update.install()`, which downloads the archive, checks its sha256 (and, on
   macOS, its code signature), swaps it in place of the app and relaunches it. An app run
   from where macOS put it in quarantine (not moved to Applications) can't be updated: the
