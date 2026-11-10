@@ -1,37 +1,67 @@
-// The workspace's chord libraries: the main one (chords.cho, there even before its file
-// is written) and the others (chords/*.chords.cho), and the one songs pick diagrams from.
+// The workspace's chord libraries (chords/*.chords.cho, and chords.cho at the top in older
+// workspaces), and the one songs pick diagrams from. A workspace without any has the
+// default one, the common guitar chords bundled with the app: it is listed at its path in
+// chords/ before its file exists, and its file is written once it is changed or renamed.
 
-import { CHORD_LIBRARY, isChordLibrary, LIBRARY_EXT } from '../../core/chords/diagrams';
+import { isChordLibrary, LIBRARY_DIR, LIBRARY_EXT, OLD_LIBRARY, readLibrary } from '../../core/chords/diagrams';
+import COMMON_GUITAR_CHORDS from './guitar.chords.cho?raw';
 import { t } from '../app/i18n.svelte';
+import type { Workspace } from '../workspace/workspace';
 
-/** The main library first, then the others by name. */
+/** The common guitar chords, bundled with the app (a ChordPro file, as written by serializeLibrary). */
+export { COMMON_GUITAR_CHORDS };
+
+/** Where the default library goes: named in the language of the app when its file is written. */
+export const defaultLibrary = () => LIBRARY_DIR + t('lib.default') + LIBRARY_EXT;
+
+/** The libraries by name, or the default one when there are none. */
 export function chordLibraries(files: string[]): string[] {
-  const others = files.filter((f) => isChordLibrary(f) && f !== CHORD_LIBRARY);
-  return [CHORD_LIBRARY, ...others.sort((a, b) => libraryName(a).localeCompare(libraryName(b)))];
+  const found = files.filter(isChordLibrary).sort((a, b) => libraryName(a).localeCompare(libraryName(b)));
+  return found.length ? found : [defaultLibrary()];
 }
 
 export function libraryName(path: string): string {
-  if (path === CHORD_LIBRARY) return t('lib.main');
+  if (path === OLD_LIBRARY) return t('lib.main');
   const base = path.split('/').pop()!;
   return base.slice(0, base.length - LIBRARY_EXT.length);
+}
+
+/** A library's chords: the default one has the common guitar chords until its file exists. */
+export function readChordLibrary(ws: Workspace, path: string) {
+  return readLibrary((p) => ws.readText(p), path, path === defaultLibrary() ? COMMON_GUITAR_CHORDS : '');
+}
+
+/** Write the default library's file, if it has none yet. */
+export async function writeDefaultLibrary(ws: Workspace, files: string[], path: string) {
+  if (path === defaultLibrary() && !files.includes(path)) await ws.writeText(path, COMMON_GUITAR_CHORDS);
 }
 
 // The library songs pick diagrams from, remembered between sessions.
 const KEY = 'narwhal:songLibrary';
 
 export function songLibrary(files: string[]): string {
+  const all = chordLibraries(files);
   try {
     const p = localStorage.getItem(KEY);
-    if (p && files.includes(p) && isChordLibrary(p)) return p;
+    if (p && all.includes(p)) return p;
   } catch {
     /* storage unavailable */
   }
-  return CHORD_LIBRARY;
+  return all[0];
 }
 
 export function setSongLibrary(path: string) {
   try {
     localStorage.setItem(KEY, path);
+  } catch {
+    /* storage unavailable */
+  }
+}
+
+/** Songs keep using a library after it is renamed. */
+export function libraryRenamed(from: string, to: string) {
+  try {
+    if (localStorage.getItem(KEY) === from) localStorage.setItem(KEY, to);
   } catch {
     /* storage unavailable */
   }

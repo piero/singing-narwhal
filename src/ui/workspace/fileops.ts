@@ -3,8 +3,9 @@
 
 import { parseSong, serializeSong, setMeta } from '../../core/song/chordpro';
 import { slugify } from '../../core/import';
+import { LIBRARY_DIR, LIBRARY_EXT } from '../../core/chords/diagrams';
 import { parseSongbook, serializeSongbook, type ContentItem } from '../../core/songbook/songbook';
-import { isSongbook, type Workspace } from './workspace';
+import { isChordLibrary, isSongbook, type Workspace } from './workspace';
 
 const dirOf = (p: string) => (p.includes('/') ? p.slice(0, p.lastIndexOf('/') + 1) : '');
 
@@ -112,11 +113,15 @@ export async function renameSongbook(ws: Workspace, files: string[], path: strin
   return renameFile(ws, files, path, title);
 }
 
-/** Rename a songbook, page or chord library file, keeping its extension. Returns the new path. */
+/**
+ * Rename a songbook, page or chord library file, keeping its extension. Returns the new
+ * path. A chord library goes to chords/, also chords.cho of older workspaces.
+ */
 export async function renameFile(ws: Workspace, files: string[], path: string, name: string): Promise<string> {
-  const ext = /(\.(songbook|page)\.ya?ml|\.chords\.cho|\.[^./]+)$/i.exec(path)?.[0] ?? '';
+  const library = isChordLibrary(path);
+  const ext = library ? LIBRARY_EXT : (/(\.(songbook|page)\.ya?ml|\.[^./]+)$/i.exec(path)?.[0] ?? '');
   const clean = name.replace(/[/\\:]/g, '-').trim();
-  const target = uniquePath(files, dirOf(path) + clean, ext, path);
+  const target = uniquePath(files, (library ? LIBRARY_DIR : dirOf(path)) + clean, ext, path);
   return moveFile(ws, files, path, target);
 }
 

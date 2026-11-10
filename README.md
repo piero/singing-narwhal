@@ -106,7 +106,7 @@ editor's shortcuts, next to *Editor | ChordPro source*).
 |---|---|---|
 | Songs with chords on the line above the lyrics | `.odt`, `.txt`, pasted text | converted to ChordPro songs in `songs/` |
 | A songbook laid out in LibreOffice Draw, two A5 pages per landscape sheet | `.odg` | a songbook, with each song in `songs/`, the other pages (cover, notes…) in `pages/` and their pictures in `images/`; pictures next to songs are left out |
-| A chord library (`chords.cho`, `*.chords.cho`) | `.cho` | replaces the workspace's chord library with the same name (`*.chords.cho` go in `chords/`) |
+| A chord library (`*.chords.cho`) | `.cho` | goes in `chords/`, replacing the workspace's library with the same name |
 | ChordPro songs (from other apps) | `.cho`, `.chordpro`, `.chopro`, `.crd`, `.pro` | copied into `songs/` as they are |
 | Pictures for covers or full pages | `.png`, `.jpg` | copied into `images/` |
 | Extra fonts | `.ttf`, `.otf` | copied into `fonts/`, usable in pages |
@@ -148,11 +148,12 @@ A song can print diagrams of its chords on its last page, beside the lyrics when
 leave room on the right or after them otherwise, for players who need a reminder of the
 fingering.
 
-1. **Set up the chord library:** click **Main library** under *Chord library* in the
-   sidebar. It starts with about 40 common guitar chords: change or remove them as you
-   like, and **+ Chord** adds one. For another instrument or set of chords, **+** next to
-   *Chord library* creates another library, empty (it can start from the common guitar
-   chords too).
+1. **Set up the chord library:** click **Guitar** under *Chord library* in the sidebar.
+   It has the about 40 common guitar chords that come with the app: change or remove them
+   as you like, and **+ Chord** adds one. Each library is a file in `chords/` (for
+   example `chords/Guitar.chords.cho`), written once you change it. For another
+   instrument or set of chords, **+** next to *Chord library* creates another library,
+   empty (it can start from the common guitar chords too).
    **Chords: Do Re Mi | C D E** rewrites the chord names in either notation, and
    **Order: As added | By note** shows the list in the file's order or grouped by note
    (C, C#, D…; the file keeps its order). Click a group's name to collapse or expand it.
@@ -173,9 +174,9 @@ fingering.
    dashed chip is a chord the song doesn't use (for example, after a transposition the
    library couldn't follow).
 
-To share a library or move it to another workspace, use the ⋯ menu next to it (other
-libraries can also be renamed or deleted there):
-- **Export library…** saves it as a ChordPro file (`chords.cho` for the main one).
+To share a library or move it to another workspace, use the ⋯ menu next to it, where you
+can also rename or delete it (or rename it from its name at the top, when it is open):
+- **Export library…** saves it as a ChordPro file.
 - **Import chords…** adds the chords of such a file, or of any ChordPro song with
   `{define}` lines. Chords you already have with a different shape are listed, and you
   choose whether to replace them.

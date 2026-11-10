@@ -6,9 +6,9 @@
   import { impose, PAGE_SIZES, type PageSizeName } from '../../core/print/impose';
   import { DEFAULT_STYLE, layoutSong, withFont, type Columns } from '../../core/song/layout';
   import { convertNotation, songKey, songNotation, transposeSong } from '../../core/song/transform';
-  import { chordKey, findShape, readLibrary, setSongShapes, shapeFor, songChords, songShapes, type ChordShape } from '../../core/chords/diagrams';
+  import { chordKey, findShape, setSongShapes, shapeFor, songChords, songShapes, type ChordShape } from '../../core/chords/diagrams';
   import ChordDiagram from '../chords/ChordDiagram.svelte';
-  import { chordLibraries, libraryName, setSongLibrary, songLibrary } from '../chords/libraries';
+  import { chordLibraries, libraryName, readChordLibrary, setSongLibrary, songLibrary } from '../chords/libraries';
   import FontSelect from '../components/FontSelect.svelte';
   import Help from '../components/Help.svelte';
   import Preview from '../components/Preview.svelte';
@@ -141,7 +141,7 @@
   let library = $state<ChordShape[]>([]);
   $effect(() => {
     const p = libraryPath;
-    readLibrary((f) => workspace.readText(f), p).then((lib) => {
+    readChordLibrary(workspace, p).then((lib) => {
       if (p === libraryPath) library = lib.shapes;
     });
   });

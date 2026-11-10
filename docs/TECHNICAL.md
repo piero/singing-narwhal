@@ -173,8 +173,8 @@ A workspace is a plain folder:
 ```
 canzoniere/
   campo-2026.songbook.yaml
-  chords.cho              # optional: the main chord library (diagrams)
-  chords/                 # optional: other chord libraries
+  chords/                 # optional: chord libraries (diagrams)
+    Guitar.chords.cho
     ukulele.chords.cho
   pages/
     copertina.page.yaml
@@ -239,7 +239,7 @@ extra, most of all as the first and the last chord, which tells a major key from
 relative minor. The guess is shown in the editor's Key field but written to the file only
 if the user types it.
 
-### Chord diagrams (`{define}`, `chords.cho`)
+### Chord diagrams (`{define}`, `*.chords.cho`)
 
 Diagrams use ChordPro's own `{define}` directive (`diagrams.ts`):
 
@@ -274,15 +274,20 @@ They are hidden when chords are (`show_chords: false`).
   fingering can't be shifted. Without one in the library it is left unchanged, and the
   editor marks it as not used by the song.
 
-**The libraries.** `chords.cho` at the top of the workspace (the main library) and any
-`*.chords.cho` (others, created in `chords/` with **+** in the sidebar) are ChordPro files
-of `{define}` lines, with a comment header (`isChordLibrary`). They are not songs.
+**The libraries.** Chord libraries are `chords/*.chords.cho` files (created with **+** in
+the sidebar), ChordPro files of `{define}` lines with a comment header (`isChordLibrary`).
+They are not songs. Each is named by its file name, and renaming it renames the file.
+`chords.cho` at the top, the main library of workspaces from before 0.7, is still read as
+a library ("Main library"); renaming it moves it into `chords/`.
 - **Reading and writing:** the Chord library view reads it with the song parser and
   rewrites the whole file on every change. Other lines in it are not kept.
-- **Starter chords:** a workspace without `chords.cho`, or whose `chords.cho` has no chords,
-  has `COMMON_GUITAR_CHORDS` (about 40 guitar chords) as its main library (`readLibrary`).
-  The file is written on the first change, so opening a workspace writes nothing. Other
-  libraries start empty and have only the chords of their file.
+- **The default library:** the app comes with `ui/chords/guitar.chords.cho`, about 40
+  common guitar chords, bundled by Vite (`?raw`, so `core/` stays usable by the CLI). A
+  workspace without any library lists it as `chords/Guitar.chords.cho` (`Chitarra` in
+  Italian: `defaultLibrary` in `ui/chords/libraries.ts`) and reads the bundled chords
+  until that file exists. The file is written on the first change, rename or import, so
+  opening a workspace writes nothing; deleting the last library brings the default back.
+  Other libraries start empty and have only the chords of their file, even none.
 - **Which library a song uses:** the song editor picks diagrams (and transposes them) from
   one library, chosen in its Diagrams panel when there are several and remembered in the
   browser (`ui/chords/libraries.ts`).
@@ -290,8 +295,8 @@ of `{define}` lines, with a comment header (`isChordLibrary`). They are not song
   imports the `{define}` lines of any ChordPro file (`compareLibraries`,
   `mergeLibraries`). Chords are matched whatever their notation. New ones are added in
   the library's notation; differing ones replace the library's only if the user agrees.
-  A file named `chords.cho` in the import dialog replaces the main library as a whole, and
-  a `*.chords.cho` the library of that name in `chords/`.
+  A `*.chords.cho` file in the import dialog replaces the library of that name in
+  `chords/` as a whole.
 - **Adding to a song:** picking a diagram in a song copies its definition into the song,
   after the metadata, named in the song's notation. Songs therefore don't depend on the
   library: they print the same in songbooks, zips, the CLI and other ChordPro tools.

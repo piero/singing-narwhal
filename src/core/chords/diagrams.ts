@@ -8,9 +8,9 @@
 // several strings at the same fret is a barre.
 //
 // A song shows the diagrams it defines, after its lyrics. A chord library is a
-// ChordPro file of {define} lines: the main one (CHORD_LIBRARY) and any others
-// (e.g. chords/ukulele.chords.cho); choosing a diagram for a song copies its
-// definition into the song, so the song stays complete on its own.
+// ChordPro file of {define} lines in chords/ (e.g. chords/ukulele.chords.cho); choosing a
+// diagram for a song copies its definition into the song, so the song stays complete on
+// its own.
 
 import { parseSong, type SongDoc, type SongLine } from '../song/chordpro';
 import { chordNotation, parseChord, renderChord, type Notation } from './chords';
@@ -123,28 +123,26 @@ export function songChords(doc: SongDoc): string[] {
 // ---------------------------------------------------------------------------
 // The chord library
 
-/** The workspace file holding the main chord library. */
-export const CHORD_LIBRARY = 'chords.cho';
-/** The folder and extension of the other chord libraries. */
+/** The folder and extension of chord libraries. */
 export const LIBRARY_DIR = 'chords/';
 export const LIBRARY_EXT = '.chords.cho';
+/** The main library of workspaces made before libraries were all in chords/. */
+export const OLD_LIBRARY = 'chords.cho';
 
-/** A chord library: the main one (chords.cho at the top) or another (*.chords.cho). */
-export const isChordLibrary = (p: string) => p === CHORD_LIBRARY || p.toLowerCase().endsWith(LIBRARY_EXT);
+/** A chord library: any *.chords.cho, or chords.cho at the top. */
+export const isChordLibrary = (p: string) => p === OLD_LIBRARY || p.toLowerCase().endsWith(LIBRARY_EXT);
 
 export function parseLibrary(text: string): ChordShape[] {
   return songShapes(parseSong(text));
 }
 
 /**
- * A chord library's chords. The main one (CHORD_LIBRARY), while it has none (no file, or
- * a file without chords), has the common guitar chords: its file is written only once
- * the library is changed. The others have the chords of their file, maybe none.
+ * A chord library's chords, and whether its file exists. Without the file, the library
+ * has the chords of `fallback` (e.g. the common guitar chords), or none.
  */
-export async function readLibrary(readText: (path: string) => Promise<string>, path = CHORD_LIBRARY): Promise<{ shapes: ChordShape[]; exists: boolean }> {
+export async function readLibrary(readText: (path: string) => Promise<string>, path: string, fallback = ''): Promise<{ shapes: ChordShape[]; exists: boolean }> {
   const shapes = await readText(path).then(parseLibrary, () => null);
-  if (path !== CHORD_LIBRARY) return { shapes: shapes ?? [], exists: shapes !== null };
-  return shapes?.length ? { shapes, exists: true } : { shapes: parseLibrary(COMMON_GUITAR_CHORDS), exists: shapes !== null };
+  return { shapes: shapes ?? parseLibrary(fallback), exists: shapes !== null };
 }
 
 export function serializeLibrary(shapes: ChordShape[]): string {
@@ -206,48 +204,6 @@ export function mergeLibraries(library: ChordShape[], incoming: ChordShape[], re
   return [...out, ...added];
 }
 
-/** Common guitar chords: the library of a workspace that has no chords.cho yet. */
-export const COMMON_GUITAR_CHORDS: string = [
-  'C base-fret 1 frets x 3 2 0 1 0 fingers 0 3 2 0 1 0',
-  'D base-fret 1 frets x x 0 2 3 2 fingers 0 0 0 1 3 2',
-  'E base-fret 1 frets 0 2 2 1 0 0 fingers 0 2 3 1 0 0',
-  'F base-fret 1 frets 1 3 3 2 1 1 fingers 1 3 4 2 1 1',
-  'G base-fret 1 frets 3 2 0 0 0 3 fingers 2 1 0 0 0 3',
-  'A base-fret 1 frets x 0 2 2 2 0 fingers 0 0 1 2 3 0',
-  'B base-fret 1 frets x 2 4 4 4 2 fingers 0 1 2 3 4 1',
-  'Bb base-fret 1 frets x 1 3 3 3 1 fingers 0 1 2 3 4 1',
-  'Eb base-fret 6 frets x 1 3 3 3 1 fingers 0 1 2 3 4 1',
-  'Ab base-fret 4 frets 1 3 3 2 1 1 fingers 1 3 4 2 1 1',
-  'F# base-fret 2 frets 1 3 3 2 1 1 fingers 1 3 4 2 1 1',
-  'Cm base-fret 3 frets x 1 3 3 2 1 fingers 0 1 3 4 2 1',
-  'C#m base-fret 4 frets x 1 3 3 2 1 fingers 0 1 3 4 2 1',
-  'Dm base-fret 1 frets x x 0 2 3 1 fingers 0 0 0 2 3 1',
-  'Em base-fret 1 frets 0 2 2 0 0 0 fingers 0 2 3 0 0 0',
-  'Fm base-fret 1 frets 1 3 3 1 1 1 fingers 1 3 4 1 1 1',
-  'F#m base-fret 2 frets 1 3 3 1 1 1 fingers 1 3 4 1 1 1',
-  'Gm base-fret 3 frets 1 3 3 1 1 1 fingers 1 3 4 1 1 1',
-  'G#m base-fret 4 frets 1 3 3 1 1 1 fingers 1 3 4 1 1 1',
-  'Am base-fret 1 frets x 0 2 2 1 0 fingers 0 0 2 3 1 0',
-  'Bm base-fret 1 frets x 2 4 4 3 2 fingers 0 1 3 4 2 1',
-  'C7 base-fret 1 frets x 3 2 3 1 0 fingers 0 3 2 4 1 0',
-  'D7 base-fret 1 frets x x 0 2 1 2 fingers 0 0 0 2 1 3',
-  'E7 base-fret 1 frets 0 2 0 1 0 0 fingers 0 2 0 1 0 0',
-  'G7 base-fret 1 frets 3 2 0 0 0 1 fingers 3 2 0 0 0 1',
-  'A7 base-fret 1 frets x 0 2 0 2 0 fingers 0 0 2 0 3 0',
-  'B7 base-fret 1 frets x 2 1 2 0 2 fingers 0 2 1 3 0 4',
-  'Dm7 base-fret 1 frets x x 0 2 1 1 fingers 0 0 0 2 1 1',
-  'Em7 base-fret 1 frets 0 2 0 0 0 0 fingers 0 2 0 0 0 0',
-  'Am7 base-fret 1 frets x 0 2 0 1 0 fingers 0 0 2 0 1 0',
-  'Cmaj7 base-fret 1 frets x 3 2 0 0 0 fingers 0 3 2 0 0 0',
-  'Fmaj7 base-fret 1 frets x x 3 2 1 0 fingers 0 0 3 2 1 0',
-  'Dsus2 base-fret 1 frets x x 0 2 3 0 fingers 0 0 0 1 3 0',
-  'Dsus4 base-fret 1 frets x x 0 2 3 3 fingers 0 0 0 1 3 4',
-  'Asus2 base-fret 1 frets x 0 2 2 0 0 fingers 0 0 1 2 0 0',
-  'Asus4 base-fret 1 frets x 0 2 2 3 0 fingers 0 0 1 2 4 0',
-  'Esus4 base-fret 1 frets 0 2 2 2 0 0 fingers 0 2 3 4 0 0',
-]
-  .map((d) => `{define: ${d}}`)
-  .join('\n');
 
 // ---------------------------------------------------------------------------
 // Drawing

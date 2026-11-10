@@ -205,7 +205,7 @@ src/
       BookView.svelte      songbook editor
       PageView.svelte      page (.page.yaml) editor
     chords/
-      ChordLibraryView.svelte chord library (chords.cho, *.chords.cho) editor
+      ChordLibraryView.svelte chord library (*.chords.cho) editor
       libraries.ts         the workspace's chord libraries, and the one songs use
       ChordDiagram.svelte  a chord diagram, editable by clicking its frets
     import/
@@ -333,7 +333,7 @@ like the rest of the project.
       line.
 - [x] PDF export with embedded fonts; A4, A5, A6, Letter, Half Letter.
 - [x] Chord diagrams after the lyrics, in ChordPro `{define}` lines picked from a chord
-      library (`chords.cho`, or others in `chords/`) that starts with common guitar chords; edited by clicking
+      library (`chords/*.chords.cho`); the app comes with one of common guitar chords; edited by clicking
       the diagram; renamed with the notation and swapped when transposing.
 - [x] Printing: 1 page per sheet, 2 copies per sheet, 2 pages per sheet, saddle-stitch
       booklets.

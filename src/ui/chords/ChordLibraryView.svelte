@@ -1,15 +1,16 @@
 <script lang="ts">
-  // A chord library (chords.cho, or another *.chords.cho): diagrams that songs can show
-  // after their lyrics. A workspace without chords.cho starts from the common guitar
-  // chords; the file is written on the first change. Other libraries start empty.
+  // A chord library (chords/*.chords.cho): diagrams that songs can show after their
+  // lyrics. A workspace without libraries has the default one, the common guitar chords,
+  // whose file is written on the first change (libraries.ts). New libraries start empty.
   // Each chord is edited on its diagram (click the frets) or as ChordPro numbers; the
   // file is a list of {define} lines, rewritten on every change. Importing and exporting
   // it are in its menu in the sidebar (App.svelte).
   import { tick } from 'svelte';
   import { chordNotation, noteName, parseChord, renderChord, type Notation } from '../../core/chords/chords';
-  import { chordKey, COMMON_GUITAR_CHORDS, parseLibrary, readLibrary, serializeLibrary, shapesNotation, type ChordShape } from '../../core/chords/diagrams';
+  import { chordKey, parseLibrary, serializeLibrary, shapesNotation, type ChordShape } from '../../core/chords/diagrams';
   import type { FontRegistry } from '../../core/assets/fonts';
   import ChordDiagram from './ChordDiagram.svelte';
+  import { COMMON_GUITAR_CHORDS, readChordLibrary } from './libraries';
   import Help from '../components/Help.svelte';
   import { t } from '../app/i18n.svelte';
   import { openFile } from '../workspace/saves.svelte';
@@ -24,7 +25,7 @@
 
   /** null while loading. */
   let shapes = $state<ChordShape[] | null>(null);
-  /** Whether the file exists (chords.cho may still have no chords: then the library is the common ones). */
+  /** Whether the file exists (the default library has the common guitar chords before it does). */
   let exists = false;
   let savedText = $state('');
   let filter = $state('');
@@ -34,7 +35,7 @@
   let list: HTMLElement | undefined = $state();
 
   $effect(() => {
-    readLibrary((p) => workspace.readText(p), path).then((lib) => {
+    readChordLibrary(workspace, path).then((lib) => {
       exists = lib.exists;
       savedText = serializeLibrary(lib.shapes);
       // Changes recovered from the last session, still unsaved.

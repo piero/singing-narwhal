@@ -10,8 +10,8 @@
   import { openFile } from './ui/workspace/saves.svelte';
   import BookView from './ui/songbook/BookView.svelte';
   import ChordLibraryView from './ui/chords/ChordLibraryView.svelte';
-  import { CHORD_LIBRARY, compareLibraries, LIBRARY_DIR, LIBRARY_EXT, mergeLibraries, parseLibrary, readLibrary, serializeLibrary, shapesNotation, shapeFor } from './core/chords/diagrams';
-  import { chordLibraries, libraryName } from './ui/chords/libraries';
+  import { compareLibraries, LIBRARY_DIR, LIBRARY_EXT, mergeLibraries, parseLibrary, serializeLibrary, shapesNotation, shapeFor } from './core/chords/diagrams';
+  import { chordLibraries, libraryName, libraryRenamed, readChordLibrary, writeDefaultLibrary } from './ui/chords/libraries';
   import Help from './ui/components/Help.svelte';
   import Tour from './ui/app/Tour.svelte';
   import { openTitle } from './ui/app/title.svelte';
@@ -197,7 +197,8 @@
         notice = r.notice ?? '';
         // Changes not saved when the app was last quit: opened again, still to be saved.
         const draft = await openFile.recover(r.ws.location);
-        if (draft && (draft.path === CHORD_LIBRARY || (await r.ws.list()).includes(draft.path))) {
+        const list = draft && (await r.ws.list());
+        if (draft && list && (list.includes(draft.path) || chordLibraries(list).includes(draft.path))) {
           await tick();
           current = draft.path;
           notice = t('app.recovered', { time: new Date(draft.time).toLocaleString(i18n.lang, { dateStyle: 'medium', timeStyle: 'short' }) });
@@ -360,11 +361,11 @@
     await saveFile(path.split('/').pop()!, await workspace.readBytes(path), 'text/plain');
   }
 
-  /** Export a chord library, also the main one when it is still the common chords (no file yet). */
+  /** Export a chord library, also the default one before its file is written. */
   async function exportLibrary(path: string) {
     menu = null;
     await openFile.settle();
-    const { shapes } = await readLibrary((p) => workspace.readText(p), path);
+    const { shapes } = await readChordLibrary(workspace, path);
     await saveFile(path.split('/').pop()!, new TextEncoder().encode(serializeLibrary(shapes)), 'text/plain');
   }
 
@@ -384,7 +385,7 @@
     }
     // The library view, if open, closes while the file changes, saving its edits first.
     await withEditorsClosed(async () => {
-      const library = (await readLibrary((p) => workspace.readText(p), path)).shapes;
+      const library = (await readChordLibrary(workspace, path)).shapes;
       const notation = shapesNotation(library);
       const { added, changed, same } = compareLibraries(library, incoming.map((s) => shapeFor(s, notation)));
       const replace = changed.length > 0 && confirm(t('lib.importReplace', { n: changed.length, names: changed.map((s) => s.name).join(', ') }));
@@ -498,14 +499,16 @@
   /** Rename a file (a song or songbook: its title, and its file to match), unless the name is the same. */
   async function renameTo(path: string, value: string) {
     if (!value || value === label(path)) return;
-    await withEditorsClosed(async () => ({
-      from: path,
-      to: isSong(path)
+    await withEditorsClosed(async () => {
+      if (isChordLibrary(path)) await writeDefaultLibrary(workspace, files, path);
+      const to = isSong(path)
         ? await renameSong(workspace, files, path, value)
         : isSongbook(path)
           ? await renameSongbook(workspace, files, path, value)
-          : await renameFile(workspace, files, path, value),
-    }));
+          : await renameFile(workspace, files, path, value);
+      if (isChordLibrary(path)) libraryRenamed(path, to);
+      return { from: path, to };
+    });
   }
 
   /** Delete files after a confirmation that lists, songbook by songbook, what each will lose. */
@@ -843,7 +846,7 @@
       <button class="nav" aria-label={t('nav.menu')} aria-expanded={navOpen} onclick={() => (navOpen = true)}>☰</button>
       <!-- The open file's title (song, songbook), or its name, edited here. -->
       <span class="title">
-        {#if current && fonts && (openTitle.source || current !== CHORD_LIBRARY)}
+        {#if current && fonts}
           {@const src = openTitle.source}
           {@const path = current}
           {@const shown = src ? src.get() : nameDraft}
@@ -944,8 +947,9 @@
     {#if isChordLibrary(m.path)}
       <button role="menuitem" title={t('lib.importHelp')} onclick={() => importChords(m.path)}>{t('lib.import')}</button>
       <button role="menuitem" title={t('lib.exportHelp')} onclick={() => exportLibrary(m.path)}>{t('lib.export')}</button>
-      {#if m.path !== CHORD_LIBRARY}
-        <button role="menuitem" onclick={() => rename(m.path)}>{t('menu.rename')}</button>
+      <button role="menuitem" onclick={() => rename(m.path)}>{t('menu.rename')}</button>
+      <!-- The default library before its file is written has nothing to delete. -->
+      {#if files.includes(m.path)}
         <button role="menuitem" class="danger" onclick={() => remove([m.path])}>{t('menu.delete')}</button>
       {/if}
     {:else}

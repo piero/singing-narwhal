@@ -8,7 +8,7 @@
   // can be reviewed and edited, and Cancel discards them.
   import type { FontRegistry } from '../../core/assets/fonts';
   import { isFontFile } from '../../core/assets/fonts';
-  import { CHORD_LIBRARY, LIBRARY_DIR } from '../../core/chords/diagrams';
+  import { LIBRARY_DIR, OLD_LIBRARY } from '../../core/chords/diagrams';
   import { IMPORTABLE, importFile, importText, slugify } from '../../core/import';
   import { importOdg } from '../../core/import/odg';
   import { pageImages, parsePage, serializePage } from '../../core/songbook/pages';
@@ -65,7 +65,7 @@
     if (isPage(base)) return { source: base, path: unique(`pages/${base.replace(/\.page\.ya?ml$/i, '')}`, '.page.yaml'), text: decode(bytes) };
     // A chord library replaces the workspace's library with the same name.
     if (isChordLibrary(base)) {
-      const path = base === CHORD_LIBRARY ? base : LIBRARY_DIR + base;
+      const path = base === OLD_LIBRARY ? base : LIBRARY_DIR + base;
       taken.add(path);
       return { source: base, path, text: decode(bytes), replaces: files.includes(path) };
     }

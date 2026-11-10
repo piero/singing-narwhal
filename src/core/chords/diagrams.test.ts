@@ -3,7 +3,6 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { parseSong, serializeSong } from '../song/chordpro';
 import {
-  COMMON_GUITAR_CHORDS,
   compareLibraries,
   mergeLibraries,
   diagramItems,
@@ -25,6 +24,8 @@ import { convertNotation, transposeSong } from '../song/transform';
 
 const fonts = new FontRegistry();
 for (const id of BUNDLED_FONTS) fonts.add(id, new Uint8Array(readFileSync(join(__dirname, '../../../public/fonts', id + '.ttf'))));
+/** The library bundled with the app (src/ui/chords/libraries.ts). */
+const COMMON_GUITAR_CHORDS = readFileSync(join(__dirname, '../../ui/chords/guitar.chords.cho'), 'utf8');
 const library = parseLibrary(COMMON_GUITAR_CHORDS);
 
 describe('chord definitions', () => {
@@ -93,17 +94,23 @@ describe('chord definitions', () => {
     expect(parseLibrary(serializeLibrary(library))).toEqual(library);
   });
 
-  it('uses the common chords until the workspace has its own library', async () => {
+  it('uses the fallback chords until the library has its file', async () => {
     const files: Record<string, string> = {};
     const read = async (p: string) => {
       if (!(p in files)) throw new Error(`File not found: ${p}`);
       return files[p];
     };
-    expect(await readLibrary(read)).toEqual({ shapes: library, exists: false });
-    files['chords.cho'] = '{define: La- base-fret 1 frets x 0 2 2 1 0}';
-    expect((await readLibrary(read)).shapes.map((s) => s.name)).toEqual(['La-']);
-    files['chords.cho'] = '# Chord library\n'; // a file without chords: the common ones again
-    expect(await readLibrary(read)).toEqual({ shapes: library, exists: true });
+    const path = 'chords/Guitar.chords.cho';
+    expect(await readLibrary(read, path, COMMON_GUITAR_CHORDS)).toEqual({ shapes: library, exists: false });
+    files[path] = '{define: La- base-fret 1 frets x 0 2 2 1 0}';
+    expect((await readLibrary(read, path, COMMON_GUITAR_CHORDS)).shapes.map((s) => s.name)).toEqual(['La-']);
+    files[path] = '# Chord library\n'; // a file without chords: empty, as its user left it
+    expect(await readLibrary(read, path, COMMON_GUITAR_CHORDS)).toEqual({ shapes: [], exists: true });
+  });
+
+  it('bundles the common guitar chords as a library file', () => {
+    expect(library.length).toBeGreaterThan(30);
+    expect(serializeLibrary(library)).toBe(COMMON_GUITAR_CHORDS);
   });
 
   it('reads other libraries as they are, even empty', async () => {
