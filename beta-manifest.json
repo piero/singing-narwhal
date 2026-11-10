@@ -1,27 +1,27 @@
 {
-  "version": "0.7.0-beta.6",
+  "version": "0.7.0-beta.7",
   "linux": {
     "arm64": {
-      "version": "0.7.0-beta.6",
-      "url": "https://github.com/piero/singing-narwhal/releases/download/v0.7.0-beta.6/narwhal-0.7.0-beta.6-linux-arm64.tar.gz",
-      "sha256": "a13bcb38dc0a5403129860b81dcc57d138977763d93655e8496e3e6c003a8759"
+      "version": "0.7.0-beta.7",
+      "url": "https://github.com/piero/singing-narwhal/releases/download/v0.7.0-beta.7/narwhal-0.7.0-beta.7-linux-arm64.tar.gz",
+      "sha256": "8fd5b8bf19adab95beaacb4db80359b0a09e8b9e71ad56b303c9b93e4b2197d4"
     },
     "x86_64": {
-      "version": "0.7.0-beta.6",
-      "url": "https://github.com/piero/singing-narwhal/releases/download/v0.7.0-beta.6/narwhal-0.7.0-beta.6-linux-x86_64.tar.gz",
-      "sha256": "7e72d5b93ae8d0533dd609e27da0d882edaeac8715bd7ec26fe70b543ae11195"
+      "version": "0.7.0-beta.7",
+      "url": "https://github.com/piero/singing-narwhal/releases/download/v0.7.0-beta.7/narwhal-0.7.0-beta.7-linux-x86_64.tar.gz",
+      "sha256": "2f665f893f745944ec574d1501c4f0e7008eaa2b27df6b9d1596262b3d540b42"
     }
   },
-  "url": "https://github.com/piero/singing-narwhal/releases/download/v0.7.0-beta.6/narwhal-0.7.0-beta.6.zip",
-  "sha256": "45b469336fdfb97e0d9616fd39aeb7e80b094eaa8da58cf561a0e8c9a189755e",
+  "url": "https://github.com/piero/singing-narwhal/releases/download/v0.7.0-beta.7/narwhal-0.7.0-beta.7.zip",
+  "sha256": "ad0f9a1516601e79479a48ea80d95722ee2ef7629ae8788e413c56d12fdf820b",
   "win": {
-    "version": "0.7.0-beta.6",
-    "url": "https://github.com/piero/singing-narwhal/releases/download/v0.7.0-beta.6/narwhal-0.7.0-beta.6-win.zip",
-    "sha256": "8c20c39ce48d7c2c4d3b2d0697fea0c934414e26cd323895938145a49248064b",
+    "version": "0.7.0-beta.7",
+    "url": "https://github.com/piero/singing-narwhal/releases/download/v0.7.0-beta.7/narwhal-0.7.0-beta.7-win.zip",
+    "sha256": "25b2541d045bdd48b12d9c0936133cac80943428e1232fb4a6b95585a21a7c74",
     "x86_64": {
-      "version": "0.7.0-beta.6",
-      "url": "https://github.com/piero/singing-narwhal/releases/download/v0.7.0-beta.6/narwhal-0.7.0-beta.6-win.zip",
-      "sha256": "8c20c39ce48d7c2c4d3b2d0697fea0c934414e26cd323895938145a49248064b"
+      "version": "0.7.0-beta.7",
+      "url": "https://github.com/piero/singing-narwhal/releases/download/v0.7.0-beta.7/narwhal-0.7.0-beta.7-win.zip",
+      "sha256": "25b2541d045bdd48b12d9c0936133cac80943428e1232fb4a6b95585a21a7c74"
     }
   }
 }
