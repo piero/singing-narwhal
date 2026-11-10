@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { parseSong, serializeSong } from '../song/chordpro';
 import {
+  chordKey,
   compareLibraries,
   mergeLibraries,
   diagramItems,
@@ -124,6 +125,12 @@ describe('chord definitions', () => {
     expect(await readLibrary(read, 'chords/missing.chords.cho')).toEqual({ shapes: [], exists: false });
     files['chords/ukulele.chords.cho'] = '{define: C base-fret 1 frets 0 0 0 3}';
     expect((await readLibrary(read, 'chords/ukulele.chords.cho')).shapes.map((s) => s.frets)).toEqual([[0, 0, 0, 3]]);
+  });
+
+  it('matches a suspended fourth in either notation', () => {
+    expect(chordKey('Do4')).toBe(chordKey('Csus4'));
+    expect(chordKey('Csus')).toBe(chordKey('Csus4'));
+    expect(chordKey('Do4')).not.toBe(chordKey('Csus2'));
   });
 
   it('tells a chord library by its contents', () => {

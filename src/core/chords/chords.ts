@@ -125,6 +125,14 @@ export function formatChord(c: Chord, notation: Notation): string {
   return noteName(c.root, notation) + minor + c.suffix + bass;
 }
 
+/**
+ * A chord's suffix in a notation: a suspended fourth is "sus4" in English (Csus4, also
+ * written Csus) and plain "4" in Italian (Do4). Other suffixes are the same in both.
+ */
+export function suffixIn(suffix: string, notation: Notation): string {
+  return notation === 'italian' ? suffix.replace(/^sus4|^sus(?!\d)/i, '4') : suffix.replace(/^\s*4/, 'sus4');
+}
+
 /** Notation a chord is written in ("La-" → italian, "Am" → english). */
 export function chordNotation(text: string): Notation {
   return /^\s*(do|re|mi|fa|sol|la|si)/i.test(text) ? 'italian' : 'english';
@@ -148,6 +156,7 @@ export function renderChord(text: string, opts: ChordRenderOptions): string {
   // in English "Am" ("A-" is rare). Chords already in their notation keep their sign.
   if (from === 'italian' && notation === 'english' && c.minorMark === '-') c.minorMark = 'm';
   if (from === 'english' && notation === 'italian' && c.minor) c.minorMark = '-';
+  if (from !== notation) c.suffix = suffixIn(c.suffix, notation);
   return formatChord(transposeChord(c, opts.transpose, opts.spelling ?? 'auto'), notation);
 }
 

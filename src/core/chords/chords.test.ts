@@ -36,6 +36,17 @@ describe('chords', () => {
     expect(renderChord('Re7', it_('english'))).toBe('D7');
   });
 
+  it('writes a suspended fourth as 4 in Do Re Mi', () => {
+    expect(renderChord('Csus4', it_('italian'))).toBe('Do4');
+    expect(renderChord('Csus', it_('italian'))).toBe('Do4');
+    expect(renderChord('Dsus4/A', it_('italian'))).toBe('Re4/La');
+    expect(renderChord('Dsus2', it_('italian'))).toBe('Resus2');
+    expect(renderChord('Do4', it_('english'))).toBe('Csus4');
+    expect(renderChord('Sol 4', it_('english'))).toBe('Gsus4');
+    expect(renderChord('Do4', it_('italian', 2))).toBe('Re4');
+    expect(renderChord('Csus4', it_('english', 2))).toBe('Dsus4');
+  });
+
   it('transposes', () => {
     expect(renderChord('C', it_('english', 2))).toBe('D');
     expect(renderChord('A', it_('english', -2))).toBe('G');

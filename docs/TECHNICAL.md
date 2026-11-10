@@ -267,7 +267,7 @@ Diagrams use ChordPro's own `{define}` directive (`diagrams.ts`):
 They take part in auto-fit, so they count when choosing columns and text size.
 They are hidden when chords are (`show_chords: false`).
 - **Names:** a diagram matches a chord whatever its notation or spelling (`Am` = `Lam` =
-  `La-`, `Bb` = `A#`: `chordKey`). It is labelled as the song writes that chord, in the
+  `La-`, `Bb` = `A#`, `Csus4` = `Csus` = `Do4`: `chordKey`). It is labelled as the song writes that chord, in the
   notation the song or songbook prints.
 - **Converting the notation** renames the `{define}` lines.
 - **Transposing** replaces each one with the library's diagram of the new chord, since a

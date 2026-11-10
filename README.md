@@ -130,7 +130,7 @@ imported. A document holding many songs is imported as one song for now.
    also put a break after them, which moves the text across an existing break, and cut,
    copy and paste them with their chords. Long lines wrap; chords follow their letters.
 4. **Chords: Do Re Mi | C D E** converts the chord names (minor chords become `La-` in
-   Do Re Mi, `Am` in C D E); **Transpose −½ / +½** changes the key. Both edit the song
+   Do Re Mi, `Am` in C D E; suspended fourths `Do4` and `Csus4`); **Transpose −½ / +½** changes the key. Both edit the song
    and can be undone.
 5. The **Key** field (under ⋯) shows the song's key. If the song doesn't state one, the
    key is guessed from the chords and shown in grey italics; type a key to set it. The key

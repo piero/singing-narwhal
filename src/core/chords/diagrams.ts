@@ -13,7 +13,7 @@
 // its own.
 
 import { parseSong, type SongDoc, type SongLine } from '../song/chordpro';
-import { chordNotation, parseChord, renderChord, type Notation } from './chords';
+import { chordNotation, parseChord, renderChord, suffixIn, type Notation } from './chords';
 import type { FontRegistry } from '../assets/fonts';
 import type { DrawItem } from '../print/display';
 
@@ -86,11 +86,11 @@ export function setSongShapes(doc: SongDoc, shapes: ChordShape[]): SongDoc {
   return { lines };
 }
 
-/** Identifies a chord whatever its notation or spelling: Am, Lam, La-, A- are the same. */
+/** Identifies a chord whatever its notation or spelling: Am, Lam, La-, A- are the same, and so are Csus4, Csus, Do4. */
 export function chordKey(name: string): string {
   const c = parseChord(name);
   if (!c) return name.trim();
-  return `${c.root.pc}${c.minor ? 'm' : ''}${c.suffix.trim()}${c.bass ? '/' + c.bass.pc : ''}`;
+  return `${c.root.pc}${c.minor ? 'm' : ''}${suffixIn(suffixIn(c.suffix.trim(), 'italian'), 'english')}${c.bass ? '/' + c.bass.pc : ''}`;
 }
 
 /** The shape for a chord name, from a list (the library or a song's diagrams). */
