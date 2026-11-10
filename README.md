@@ -106,7 +106,7 @@ editor's shortcuts, next to *Editor | ChordPro source*).
 |---|---|---|
 | Songs with chords on the line above the lyrics | `.odt`, `.txt`, pasted text | converted to ChordPro songs in `songs/` |
 | A songbook laid out in LibreOffice Draw, two A5 pages per landscape sheet | `.odg` | a songbook, with each song in `songs/`, the other pages (cover, notes…) in `pages/` and their pictures in `images/`; pictures next to songs are left out |
-| A chord library (`*.chords.cho`) | `.cho` | goes in `chords/`, replacing the workspace's library with the same name |
+| A chord library (`*.chords.cho`, or any ChordPro file with only chord diagrams) | `.cho` | goes in `chords/` under its file name, replacing the workspace's library with the same name |
 | ChordPro songs (from other apps) | `.cho`, `.chordpro`, `.chopro`, `.crd`, `.pro` | copied into `songs/` as they are |
 | Pictures for covers or full pages | `.png`, `.jpg` | copied into `images/` |
 | Extra fonts | `.ttf`, `.otf` | copied into `fonts/`, usable in pages |
@@ -179,7 +179,9 @@ fingering.
 
 To share a library or move it to another workspace, use the ⋯ menu next to it, where you
 can also rename or delete it (or rename it from its name at the top, when it is open):
-- **Export library…** saves it as a ChordPro file.
+- **Export library…** saves it as a ChordPro file. In the other workspace, **⤓** next to
+  *Chord library* adds it as a library of its own (or **Import…** at the top, with other
+  files).
 - **Import chords…** adds the chords of such a file, or of any ChordPro song with
   `{define}` lines. Chords you already have with a different shape are listed, and you
   choose whether to replace them.

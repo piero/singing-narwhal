@@ -20,6 +20,16 @@ export function chordLibraries(files: string[]): string[] {
   return found.length ? found : [defaultLibrary()];
 }
 
+/**
+ * Where an imported library file goes: chords/ under its own name (chords.cho, the main
+ * library exported by older versions, as the main library).
+ */
+export function importedLibraryPath(name: string): string {
+  const base = name.split('/').pop()!;
+  const stem = base.toLowerCase() === OLD_LIBRARY ? t('lib.main') : base.replace(/(\.chords)?\.[^.]+$/i, '');
+  return LIBRARY_DIR + stem + LIBRARY_EXT;
+}
+
 export function libraryName(path: string): string {
   if (path === OLD_LIBRARY) return t('lib.main');
   const base = path.split('/').pop()!;

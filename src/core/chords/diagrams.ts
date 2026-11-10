@@ -137,6 +137,16 @@ export function parseLibrary(text: string): ChordShape[] {
 }
 
 /**
+ * A ChordPro text that is a chord library, whatever its file name: chord diagrams and
+ * nothing of a song (no lyrics, no title).
+ */
+export function isLibraryText(text: string): boolean {
+  const doc = parseSong(text);
+  const songLike = doc.lines.some((l) => (l.kind === 'lyrics' && l.text.trim()) || (l.kind === 'directive' && /^(title|t)$/.test(l.name)));
+  return !songLike && songShapes(doc).length > 0;
+}
+
+/**
  * A chord library's chords, and whether its file exists. Without the file, the library
  * has the chords of `fallback` (e.g. the common guitar chords), or none.
  */

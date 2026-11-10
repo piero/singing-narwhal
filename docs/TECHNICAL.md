@@ -295,8 +295,11 @@ a library ("Main library"); renaming it moves it into `chords/`.
   imports the `{define}` lines of any ChordPro file (`compareLibraries`,
   `mergeLibraries`). Chords are matched whatever their notation. New ones are added in
   the library's notation; differing ones replace the library's only if the user agrees.
-  A `*.chords.cho` file in the import dialog replaces the library of that name in
-  `chords/` as a whole.
+  A library file in the import dialog (named `*.chords.cho`, or a ChordPro file of
+  `{define}` lines with no lyrics or title: `isLibraryText`) goes in `chords/` under its
+  file name (`importedLibraryPath`; an old `chords.cho` as the main library), replacing
+  the library of that name as a whole. **⤓** next to *Chord library* picks such files and
+  sends them to the dialog as libraries, whatever else they contain.
 - **Adding to a song:** picking a diagram in a song copies its definition into the song,
   after the metadata, named in the song's notation. Songs therefore don't depend on the
   library: they print the same in songbooks, zips, the CLI and other ChordPro tools.

@@ -8,7 +8,8 @@
   // can be reviewed and edited, and Cancel discards them.
   import type { FontRegistry } from '../../core/assets/fonts';
   import { isFontFile } from '../../core/assets/fonts';
-  import { LIBRARY_DIR, OLD_LIBRARY } from '../../core/chords/diagrams';
+  import { isLibraryText } from '../../core/chords/diagrams';
+  import { importedLibraryPath } from '../chords/libraries';
   import { IMPORTABLE, importFile, importText, slugify } from '../../core/import';
   import { importOdg } from '../../core/import/odg';
   import { pageImages, parsePage, serializePage } from '../../core/songbook/pages';
@@ -63,9 +64,11 @@
     if (isFontFile(base)) return { source: base, path: unique(`fonts/${stem}`, ext), bytes };
     if (isSongbook(base)) return { source: base, path: unique(base.replace(/\.songbook\.ya?ml$/i, ''), '.songbook.yaml'), text: decode(bytes) };
     if (isPage(base)) return { source: base, path: unique(`pages/${base.replace(/\.page\.ya?ml$/i, '')}`, '.page.yaml'), text: decode(bytes) };
-    // A chord library replaces the workspace's library with the same name.
-    if (isChordLibrary(base)) {
-      const path = base === OLD_LIBRARY ? base : LIBRARY_DIR + base;
+    // A chord library (by its name, or a ChordPro file of diagrams only) goes in chords/,
+    // replacing the workspace's library with the same name (whatever its case).
+    if (isChordLibrary(base) || (/\.(txt|text|cho|chordpro|chopro|crd|pro)$/i.test(base) && isLibraryText(decode(bytes)))) {
+      const target = importedLibraryPath(base);
+      const path = files.find((f) => f.toLowerCase() === target.toLowerCase()) ?? target;
       taken.add(path);
       return { source: base, path, text: decode(bytes), replaces: files.includes(path) };
     }

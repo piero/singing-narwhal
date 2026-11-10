@@ -11,6 +11,7 @@ import {
   parseDefine,
   parseLibrary,
   isChordLibrary,
+  isLibraryText,
   readLibrary,
   serializeLibrary,
   setSongShapes,
@@ -123,6 +124,14 @@ describe('chord definitions', () => {
     expect(await readLibrary(read, 'chords/missing.chords.cho')).toEqual({ shapes: [], exists: false });
     files['chords/ukulele.chords.cho'] = '{define: C base-fret 1 frets 0 0 0 3}';
     expect((await readLibrary(read, 'chords/ukulele.chords.cho')).shapes.map((s) => s.frets)).toEqual([[0, 0, 0, 3]]);
+  });
+
+  it('tells a chord library by its contents', () => {
+    expect(isLibraryText(COMMON_GUITAR_CHORDS)).toBe(true);
+    expect(isLibraryText('{define: C base-fret 1 frets 0 0 0 3}\n')).toBe(true);
+    expect(isLibraryText('{title: Song}\n{define: C base-fret 1 frets 0 0 0 3}\n')).toBe(false);
+    expect(isLibraryText('{define: C base-fret 1 frets 0 0 0 3}\n[C]Hello\n')).toBe(false);
+    expect(isLibraryText('# just a comment\n')).toBe(false);
   });
 
   it('tells chord libraries from songs', () => {

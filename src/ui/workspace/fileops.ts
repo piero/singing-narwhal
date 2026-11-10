@@ -85,7 +85,13 @@ function uniquePath(files: string[], base: string, ext: string, except: string):
 export async function moveFile(ws: Workspace, files: string[], from: string, to: string): Promise<string> {
   if (from === to) return from;
   const books = await songbooksUsing(ws, files, from);
-  await ws.rename(from, to);
+  // Only the case changes (guitar → Guitar): on a disk that ignores case (macOS, Windows)
+  // the target is the file itself, so it goes through another name first.
+  if (from.toLowerCase() === to.toLowerCase()) {
+    const tmp = `${from}.renaming`;
+    await ws.rename(from, tmp);
+    await ws.rename(tmp, to);
+  } else await ws.rename(from, to);
   await updateSongbooks(ws, books, (b, items) =>
     items.map((c) => {
       const p = itemPath(c);

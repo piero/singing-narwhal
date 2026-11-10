@@ -11,7 +11,7 @@
   import BookView from './ui/songbook/BookView.svelte';
   import ChordLibraryView from './ui/chords/ChordLibraryView.svelte';
   import { compareLibraries, LIBRARY_DIR, LIBRARY_EXT, mergeLibraries, parseLibrary, serializeLibrary, shapesNotation, shapeFor } from './core/chords/diagrams';
-  import { chordLibraries, libraryName, libraryRenamed, readChordLibrary, writeDefaultLibrary } from './ui/chords/libraries';
+  import { chordLibraries, importedLibraryPath, libraryName, libraryRenamed, readChordLibrary, writeDefaultLibrary } from './ui/chords/libraries';
   import Help from './ui/components/Help.svelte';
   import Tour from './ui/app/Tour.svelte';
   import { openTitle } from './ui/app/title.svelte';
@@ -441,6 +441,22 @@
     current = name;
   }
 
+  /**
+   * Chord library files from elsewhere (exported from another workspace, or any ChordPro
+   * file of {define} lines), each added as a library under its own name through the import
+   * dialog, which shows them before writing them.
+   */
+  async function importLibraries() {
+    const picked = await pickLocalFiles(['cho', 'chordpro', 'chopro', 'crd', 'pro', 'txt'], true);
+    const libraries = picked.filter((f) => parseLibrary(new TextDecoder().decode(f.bytes)).length);
+    const none = picked.filter((f) => !libraries.includes(f));
+    if (none.length) error = t('lib.importNone', { files: none.map((f) => f.name).join(', ') });
+    if (!libraries.length) return;
+    // Named as libraries, so that the dialog doesn't take them for songs.
+    opened.push(...libraries.map((f) => ({ ...f, name: importedLibraryPath(f.name).split('/').pop()! })));
+    importing = true;
+  }
+
   /** A new chord library, empty: chords are added in it or imported from the sidebar menu. */
   async function newLibrary() {
     if (!(await confirmLeave())) return;
@@ -818,7 +834,13 @@
         {#each pages as f (f)}{@render item(f, '📄 ' + baseName(f))}{/each}
       </ul>
 
-      <h3>{t('side.chords')} <button class="add" onclick={newLibrary} title={t('side.newLibrary')}>+</button></h3>
+      <h3>
+        {t('side.chords')}
+        <span>
+          <button class="add" onclick={importLibraries} title={t('side.importLibrary')} aria-label={t('side.importLibrary')}>⤓</button>
+          <button class="add" onclick={newLibrary} title={t('side.newLibrary')}>+</button>
+        </span>
+      </h3>
       <ul>
         {#each libraries as f (f)}
           <li class:active={current === f} class:menu-open={menu?.path === f} oncontextmenu={(e) => openMenu(f, e)}>
@@ -1154,6 +1176,10 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+  }
+  h3 span {
+    display: flex;
+    gap: 2px;
   }
   h3 .add {
     border: none;
