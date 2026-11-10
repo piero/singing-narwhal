@@ -1204,7 +1204,8 @@
   .line.empty .lyric .text {
     line-height: 22px;
   }
-  .line.empty:hover .lyric .text,
+  /* An empty line makes room for chords once it is being edited; not on hover, which would
+     move the lines below it while the pointer passes over. */
   .line.empty:focus-within .lyric .text {
     line-height: 34px;
   }
