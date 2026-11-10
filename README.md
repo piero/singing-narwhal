@@ -138,9 +138,12 @@ imported. A document holding many songs is imported as one song for now.
 
 Changes are written when you click **Save** above the editor (or press ⌘S, Ctrl+S on
 Windows and Linux); until then the bar says *Unsaved changes*. Opening another file or
-switching folder asks first whether to save them. Quitting the desktop app doesn't ask: the
-unsaved changes are kept and opened again, still unsaved, the next time you start it. If a
-save fails (for example, no space left), a red error bar says so.
+switching folder asks first whether to save them, and so does quitting the desktop app
+with **Safe Quit** (⌘Q, Ctrl+Q on Windows and Linux). Closing it another way (the window's close button,
+or the second *Quit* item in the macOS application menu, which the app can't remove) quits
+at once, keeping the unsaved changes aside: the next time you start the app it asks
+whether to restore them or discard them. If a save fails (for example, no space left), a
+red error bar says so.
 
 ### Chord diagrams
 

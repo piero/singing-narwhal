@@ -195,13 +195,22 @@
         const r = await TinyWorkspace.start();
         workspace = r.ws;
         notice = r.notice ?? '';
-        // Changes not saved when the app was last quit: opened again, still to be saved.
+        // Changes not saved when the app last closed without asking (the stock Quit, the
+        // window's close button, a crash): restored, still to be saved, or discarded.
         const draft = await openFile.recover(r.ws.location);
         const list = draft && (await r.ws.list());
         if (draft && list && (list.includes(draft.path) || chordLibraries(list).includes(draft.path))) {
-          await tick();
-          current = draft.path;
-          notice = t('app.recovered', { time: new Date(draft.time).toLocaleString(i18n.lang, { dateStyle: 'medium', timeStyle: 'short' }) });
+          const time = new Date(draft.time).toLocaleString(i18n.lang, { dateStyle: 'medium', timeStyle: 'short' });
+          const restore = await tiny()!.dialog.confirm(t('app.recoverAsk', { name: draft.path.split('/').pop()! }), {
+            detail: t('app.recoverDetail', { time }),
+            ok: t('app.restore'),
+            cancel: t('app.discard'),
+          });
+          if (restore) {
+            await tick();
+            current = draft.path;
+            notice = t('app.recovered', { time });
+          } else await openFile.discard();
         } else if (draft) await openFile.discard();
       } catch (e) {
         error = (e as Error).message;
@@ -614,30 +623,38 @@
     tiny()?.win?.setTitle(title).catch(() => {});
   });
 
-  // Desktop menus. Quit is the stock item: TinyJS has no hook to stop a quit, nor a way to
-  // remove that item, so unsaved changes are kept aside instead and opened again at the next
-  // launch (saves.svelte.ts). Check for Updates… goes in the application menu on macOS;
-  // Windows and Linux have none (TinyJS drops its items there), so it goes in Help.
+  // Desktop menus. TinyJS has no hook to stop a quit, so the app has a Quit item of its own
+  // (Safe Quit) with ⌘Q, which asks about unsaved changes first. On macOS it goes in the application
+  // menu above the stock Quit, which TinyJS can't remove: the shortcut reaches ours first.
+  // The stock item, the window's close button and logging out still quit at once: the
+  // unsaved changes are then kept aside, and the next launch asks whether to restore them
+  // (saves.svelte.ts). Windows and Linux have no application menu (TinyJS drops its items
+  // there), so Quit goes in File and Check for Updates… in Help.
   $effect(() => {
     const update = tiny()?.app.update ? [{ id: 'update', label: t('update.check') }] : [];
+    const quit = { id: 'quit', label: t('app.quit'), key: 'q' };
     const mac = navigator.platform.startsWith('Mac');
     tiny()
       ?.menu?.set([
-        { role: 'app', standard: false, items: mac ? update : [] },
-        { title: t('app.file'), items: [{ id: 'save', label: t('app.save'), key: 's' }] },
+        { role: 'app', standard: false, items: mac ? [...update, ...(update.length ? [{ separator: true }] : []), quit] : [] },
+        { title: t('app.file'), items: [{ id: 'save', label: t('app.save'), key: 's' }, ...(mac ? [] : [{ separator: true }, quit])] },
         ...(!mac && update.length ? [{ role: 'help', items: update }] : []),
       ])
       .catch(() => {});
   });
-  tiny()?.menu?.on((id) => {
+  tiny()?.menu?.on(async (id) => {
     if (id === 'save') save().catch(() => {});
     else if (id === 'update') checkForUpdate();
+    else if (id === 'quit') {
+      tiny()!.win?.show();
+      if (await confirmLeave()) tiny()!.quit();
+    }
   });
 
   // Desktop: updates. TinyJS checks the update manifest at launch and once a day (tinyjs.json
   // "update") and reports a newer version with 'update-available'; the menu item Check for
   // Updates… asks at once. Installing relaunches the app, so unsaved changes are dealt with
-  // first, as when closing a file.
+  // first, as when quitting.
   tiny()?.api.on('update-available', (info: UpdateInfo) => offerUpdate(info));
 
   async function checkForUpdate() {

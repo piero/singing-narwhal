@@ -441,15 +441,18 @@ app). Failed saves are reported in a red error bar.
   renaming, deleting other files, importing chords, loading the example) the app asks:
   **Save**, **Don't save** or **Cancel**. Deleting the open file discards its changes.
 - **Leaving the page** with unsaved changes triggers the browser's `beforeunload` warning.
-- **Quitting the desktop app:** TinyJS has no hook to veto a quit, and the stock Quit item
-  in the application menu can't be removed (an item of the app's own would show as a
-  second Quit). So Quit (⌘Q), the window's close button and logging out quit directly,
-  without asking; the unsaved changes are kept aside, as below.
+- **Quitting the desktop app:** TinyJS has no hook to veto a quit, nor a way to remove the
+  stock Quit item of the macOS application menu. The app adds its own item, **Safe Quit**, with ⌘Q
+  above it, so the shortcut reaches it first; it asks about unsaved changes before calling
+  `tiny.quit()` (on Windows and Linux, which have no application menu, it is in File, with
+  Ctrl+Q). The stock item (a second *Quit* in the menu), the window's close button and
+  logging out still quit directly; the unsaved changes are kept aside, as below.
 - **Unsaved changes on the desktop:** since a quit can't always be stopped, the unsaved
   text of the open file is also written, a moment after each change, to `Unsaved.json` in
   the app's data folder (with the workspace folder, the file's path and the time), and
   removed when the changes are saved or discarded. At launch, if it belongs to the
-  workspace being opened, that file is opened with the recovered text, still unsaved.
+  workspace being opened, a native dialog asks whether to restore the changes (the file
+  opens with them, still unsaved) or discard them (back to the saved file).
 - Renames and deletes update the songbooks that refer to the file
   (`src/ui/workspace/fileops.ts`). Exports (`.zip`, **Save as…**) copy the files as saved.
 
