@@ -54,8 +54,13 @@
     });
   });
 
-  /** Phones: artist, key and chord tools are folded under the title. */
-  let showDetails = $state(false);
+  /** Artist, key and chord tools are folded into a one-line summary until opened; remembered between songs. */
+  const DETAILS_KEY = 'narwhal:songDetailsOpen';
+  let showDetails = $state(readOpen(DETAILS_KEY));
+  function toggleDetails() {
+    showDetails = !showDetails;
+    writeOpen(DETAILS_KEY, showDetails);
+  }
 
   // Saved when the user asks (Save, ⌘S in the app).
   $effect(() => openFile.attach(workspace.location, path, save));
@@ -157,21 +162,24 @@
   let peek = $state<number | null>(null);
   /** The diagrams row is a one-line summary until opened; remembered between songs. */
   const OPEN_KEY = 'narwhal:diagramsOpen';
-  let diagramsOpen = $state(readOpen());
-  function readOpen() {
+  let diagramsOpen = $state(readOpen(OPEN_KEY));
+  function readOpen(key: string) {
     try {
-      return localStorage.getItem(OPEN_KEY) === '1';
+      return localStorage.getItem(key) === '1';
     } catch {
       return false;
     }
   }
-  function toggleDiagrams() {
-    diagramsOpen = !diagramsOpen;
+  function writeOpen(key: string, open: boolean) {
     try {
-      localStorage.setItem(OPEN_KEY, diagramsOpen ? '1' : '0');
+      localStorage.setItem(key, open ? '1' : '0');
     } catch {
       /* storage unavailable */
     }
+  }
+  function toggleDiagrams() {
+    diagramsOpen = !diagramsOpen;
+    writeOpen(OPEN_KEY, diagramsOpen);
   }
 
   const setShapes = (list: ChordShape[]) => change(setSongShapes(doc, list), true);
@@ -212,6 +220,11 @@
 <div class="song-view">
   <section class="edit-pane">
     <div class="meta">
+      <button class="summary details-summary" aria-expanded={showDetails} title={t('song.details')} onclick={toggleDetails}>
+        <span class="chevron" class:open={showDetails} aria-hidden="true">▸</span>
+        <span class="caption">{t('song.detailsLabel')}</span>
+        {#if !showDetails}<span class="names">{[meta('artist'), key.key].filter(Boolean).join(' · ')}</span>{/if}
+      </button>
       <div class="details" class:open={showDetails}>
       <div class="row">
         <input placeholder={t('song.artist')} value={meta('artist')} oninput={(e) => setM('artist', e.currentTarget.value)} />
@@ -301,7 +314,6 @@
           </Help>
         {/if}
         <span class="status">{status}</span>
-        <button class="details-toggle" aria-expanded={showDetails} title={t('song.details')} onclick={() => (showDetails = !showDetails)}>{showDetails ? '▴' : '⋯'}</button>
       </div>
     </div>
     <div class="editor-scroll">
@@ -408,15 +420,16 @@
   .details {
     display: contents;
   }
-  .details-toggle {
+  .details:not(.open) {
     display: none;
-    border: 1px solid var(--line);
-    background: var(--bg);
-    color: var(--fg);
-    border-radius: 4px;
-    padding: 4px 10px;
-    font: inherit;
-    cursor: pointer;
+  }
+  .summary.details-summary {
+    padding: 0;
+  }
+  .summary.details-summary .names {
+    font-weight: normal;
+    word-spacing: normal;
+    color: var(--muted);
   }
   .row {
     display: flex;
@@ -677,7 +690,7 @@
       display: none;
     }
   }
-  /* Phones: the lyrics get the room. Details fold under the title, and the whole pane
+  /* Phones: the lyrics get the room. The whole pane
      scrolls, so the header goes away while the section toolbar stays at the top. */
   @container main (max-width: 600px) {
     .edit-pane {
@@ -690,12 +703,6 @@
     .meta {
       padding: 8px 12px 0;
       gap: 6px;
-    }
-    .details-toggle {
-      display: block;
-    }
-    .details:not(.open) {
-      display: none;
     }
     .source {
       min-height: 70vh;

@@ -926,15 +926,10 @@
       {/if}
     </div>
     {#if error}<div class="error" role="alert">{error} <button aria-label="✕" onclick={() => (error = '')}>✕</button></div>{/if}
-    {#if fonts && current && (isSong(current) || isPage(current))}
-      {@const books = usedIn[current] ?? []}
-      <div class="used-in" class:unused={!books.length}>
-        {#if books.length}
-          {t('side.inBooksLabel')}
-          {#each books as b (b)}<button onclick={() => go(b)}>📖 {label(b)}</button>{/each}
-        {:else}
-          ○ {t('side.inNoBookHint')}
-        {/if}
+    {#if fonts && current && (isSong(current) || isPage(current)) && usedIn[current]?.length}
+      <div class="used-in">
+        {t('side.inBooksLabel')}
+        {#each usedIn[current] as b (b)}<button onclick={() => go(b)}>📖 {label(b)}</button>{/each}
       </div>
     {/if}
     {#if !fonts}
@@ -1527,11 +1522,6 @@
       white-space: nowrap;
       scrollbar-width: none;
       padding: 4px 12px;
-    }
-    .used-in.unused {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      display: block;
     }
   }
   /* Phones and small tablets: the sidebar slides in from the left. */
