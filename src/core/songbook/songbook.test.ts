@@ -3,7 +3,8 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { BUNDLED_FONTS, FontRegistry } from '../assets/fonts';
 import { layoutPage, starterTemplate } from './pages';
-import { resolveBookPath, songbookFiles } from './songbook';
+import { withFont } from '../song/layout';
+import { defaultSongbook, parseSongbook, resolveBookPath, serializeSongbook, songbookFiles } from './songbook';
 
 const fonts = new FontRegistry();
 for (const id of BUNDLED_FONTS) fonts.add(id, new Uint8Array(readFileSync(join(__dirname, '../../../public/fonts', id + '.ttf'))));
@@ -24,6 +25,15 @@ describe('songbook files', () => {
     const r = await songbookFiles('book.songbook.yaml', Object.keys(ws), async (p) => ws[p]);
     expect(r.files.sort()).toEqual(['book.songbook.yaml', 'fonts/Fancy-Regular.ttf', 'images/full.jpg', 'images/logo.png', 'pages/cover.page.yaml', 'songs/a.cho']);
     expect(r.missing).toEqual(['songs/gone.cho']);
+  });
+
+  it('saves the songbook font, keeping bold and italic', () => {
+    const b = defaultSongbook();
+    b.style = withFont(b.style, fonts, 'LiberationSans', b.style.lyrics.size);
+    const back = parseSongbook(serializeSongbook(b));
+    expect(back.style.lyrics).toEqual({ font: 'LiberationSans-Regular', size: 11 });
+    expect(back.style.chords.font).toBe('LiberationSans-Bold');
+    expect(back.style.comment.font).toBe('LiberationSans-Italic');
   });
 
   it('resolves paths relative to the songbook', () => {

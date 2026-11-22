@@ -2,12 +2,14 @@
   import { onDestroy, tick } from 'svelte';
   import { openFile } from '../workspace/saves.svelte';
   import { getMeta, parseSong } from '../../core/song/chordpro';
-  import type { FontRegistry } from '../../core/assets/fonts';
+  import { fontFamily, type FontRegistry } from '../../core/assets/fonts';
+  import { withFont } from '../../core/song/layout';
   import { impose, PAGE_SIZES } from '../../core/print/impose';
   import { buildSongbook, parseSongbook, serializeSongbook, type BuiltBook, type ContentItem, type Songbook } from '../../core/songbook/songbook';
   import { serializePage, starterTemplate, type TemplateName } from '../../core/songbook/pages';
   import { ImageUrls } from '../app/fonts.svelte';
   import { i18n, t, type Key } from '../app/i18n.svelte';
+  import FontSelect from '../components/FontSelect.svelte';
   import Preview from '../components/Preview.svelte';
   import Splitter from '../components/Splitter.svelte';
   import { sortable } from '../components/sortable';
@@ -264,6 +266,10 @@
             <label class="row">
               <span>{t('song.columns')}</span>
               <select bind:value={book.columns}><option value="auto">{t('opt.auto')}</option><option value={1}>1</option><option value={2}>2</option></select>
+            </label>
+            <label class="row" title={t('book.fontHelp')}>
+              <span>{t('opt.font')}</span>
+              <FontSelect {fonts} value={fontFamily(book.style.lyrics.font)} onchange={(f) => (book!.style = withFont(book!.style, fonts, f, book!.style.lyrics.size))} />
             </label>
             <label class="row"><span>{t('book.lyricsSize')}</span><input type="number" step="0.5" min="6" max="20" bind:value={book.style.lyrics.size} /></label>
             <label class="row"><span>{t('book.chordsSize')}</span><input type="number" step="0.5" min="6" max="20" bind:value={book.style.chords.size} /></label>
