@@ -367,8 +367,12 @@ function subLine(row: LyricsRow, a: number, b: number, includeEnd: boolean): Lyr
   };
 }
 
-/** Lay out a line, wrapping it at spaces when it is wider than `maxWidth`. */
-function layoutLine(ctx: Ctx, row: LyricsRow, maxWidth: number): Row[] {
+/**
+ * Lay out a line, wrapping it at spaces when it is wider than `maxWidth`. `wraps`, if
+ * given, counts the cost of the wraps: one each, two when a lone word is left on its
+ * own row, which reads like a mistake.
+ */
+function layoutLine(ctx: Ctx, row: LyricsRow, maxWidth: number, wraps?: { n: number }): Row[] {
   if (isInlineChordLine(row.text, row.chords)) return [layoutInline(ctx, row)];
   const single = layoutSingle(ctx, row);
   if (single.width <= maxWidth) return [single.row];
@@ -380,8 +384,9 @@ function layoutLine(ctx: Ctx, row: LyricsRow, maxWidth: number): Row[] {
     const head = layoutSingle(ctx, subLine(row, 0, s, true));
     if (head.width <= maxWidth || k === 0) {
       const rest = subLine(row, s + 1, row.text.length, true);
+      if (wraps) wraps.n += rest.text.trim().includes(' ') ? 1 : 2;
       const indent = ctx.style.wrapIndent * ctx.scale;
-      const tail = layoutLine(ctx, rest, maxWidth - indent).map((r) => ({
+      const tail = layoutLine(ctx, rest, maxWidth - indent, wraps).map((r) => ({
         ...r,
         items: r.items.map((it) => ({ ...it, x: it.x + indent })),
       }));
@@ -411,10 +416,9 @@ function measureBlock(ctx: Ctx, block: Block, colWidth: number): MeasuredBlock {
   const { style, fonts } = ctx;
   const indent = block.kind === 'chorus' ? style.chorusIndent * ctx.scale : 0;
   const rows: Row[] = [];
-  let wrapped = 0;
+  const wraps = { n: 0 };
   for (const r of block.rows) {
-    const laid = r.kind === 'comment' ? [layoutComment(ctx, r)] : layoutLine(ctx, r, colWidth - indent);
-    wrapped += laid.length - 1;
+    const laid = r.kind === 'comment' ? [layoutComment(ctx, r)] : layoutLine(ctx, r, colWidth - indent, wraps);
     rows.push(...laid.map((row) => ({ ...row, items: row.items.map((it) => ({ ...it, x: it.x + indent })) })));
   }
   if (block.label && rows.length) {
@@ -433,7 +437,7 @@ function measureBlock(ctx: Ctx, block: Block, colWidth: number): MeasuredBlock {
       });
     }
   }
-  return { rows, height: rows.reduce((h, r) => h + r.height, 0), breakBefore: block.breakBefore, wrapped };
+  return { rows, height: rows.reduce((h, r) => h + r.height, 0), breakBefore: block.breakBefore, wrapped: wraps.n };
 }
 
 // ---------------------------------------------------------------------------

@@ -73,6 +73,14 @@ describe('layout', () => {
     expect(r.columns).toBe(2);
   });
 
+  it('shrinks the text rather than leave a lone word on a wrapped row', () => {
+    const doc = parseSong('{title: T}\n{columns: 2}\n{soc}\nVi[Si-]vendo [Sol]l\'avven[Re]tura nella[La] branca [Fa#]E\n{eoc}\n');
+    const r = layoutSong(doc, fonts, DEFAULT_STYLE, opts);
+    const ys = new Set(r.pages[0].items.filter((i) => i.type === 'text' && i.role === 'lyrics').map((i) => i.type === 'text' && i.y));
+    expect(r.scale).toBeLessThan(1);
+    expect(ys.size).toBe(1);
+  });
+
   it('lays out a typical song on one page', () => {
     // Amazing Grace (John Newton, 1779): public domain.
     const verses = [
