@@ -49,6 +49,11 @@ Intro: [C] [G] (2x)
     expect(s.blocks.map((b) => b.kind)).toEqual(['chorus', 'plain', 'chorus']);
     expect(s.blocks[2].rows[0]).toMatchObject({ text: 'A b…' });
   });
+
+  it('repeats the chorus with its label and first line', () => {
+    const s = structure(parseSong('{start_of_chorus: Rit.}\nFirst\n\nSecond\n{end_of_chorus}\n\nverse\n\n{chorus}\n'));
+    expect(s.blocks[3]).toMatchObject({ kind: 'chorus', label: 'Rit.', rows: [{ text: 'First…' }] });
+  });
 });
 
 describe('layout', () => {
@@ -79,6 +84,14 @@ describe('layout', () => {
     const ys = new Set(r.pages[0].items.filter((i) => i.type === 'text' && i.role === 'lyrics').map((i) => i.type === 'text' && i.y));
     expect(r.scale).toBeLessThan(1);
     expect(ys.size).toBe(1);
+  });
+
+  it('widens the chorus indent to fit a short label beside the first line', () => {
+    const style = withFont(DEFAULT_STYLE, fonts, 'LiberationSans', 11);
+    const r = layoutSong(parseSong('{title: T}\n{start_of_chorus: Rit.}\nNo, [Do]non può finire\n{end_of_chorus}\n'), fonts, style, opts);
+    const items = r.pages[0].items;
+    const label = items.find((i) => i.type === 'text' && i.role === 'label')!;
+    expect(items.some((i) => i.type === 'text' && i.role === 'lyrics' && label.type === 'text' && i.y === label.y)).toBe(true);
   });
 
   it('lays out a typical song on one page', () => {

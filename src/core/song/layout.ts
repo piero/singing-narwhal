@@ -166,10 +166,13 @@ export function structure(doc: SongDoc): SongStructure {
   let pendingBreak: Block['breakBefore'];
   let lastChorus: Block | null = null;
 
+  // The first paragraph of the latest chorus, which {chorus} repeats.
+  let envStart = true;
   const close = () => {
     if (current && current.rows.length) {
       s.blocks.push(current);
-      if (current.kind === 'chorus') lastChorus = current;
+      if (current.kind === 'chorus' && envStart) lastChorus = current;
+      envStart = false;
     }
     current = null;
   };
@@ -198,6 +201,7 @@ export function structure(doc: SongDoc): SongStructure {
           close();
           env = start;
           envLabel = l.value || undefined;
+          envStart = true;
           return;
         }
         if (l.name.startsWith('end_of_')) {
@@ -213,13 +217,14 @@ export function structure(doc: SongDoc): SongStructure {
             open().rows.push({ kind: 'comment', line: i, text: l.value });
             return;
           case 'chorus': {
-            // Reference to the chorus: print its first line followed by an ellipsis.
+            // Reference to the chorus: print its label and first line followed by an ellipsis.
             close();
             const ref = lastChorus as Block | null;
             const first = ref?.rows.find((r): r is LyricsRow => r.kind === 'lyrics');
             const text = l.value || (first ? first.text.trimEnd().replace(/[.,;:!?…]*$/, '') + '…' : 'Chorus');
             s.blocks.push({
               kind: 'chorus',
+              label: ref?.label,
               rows: [{ kind: 'lyrics', line: i, text, chords: [], italic: false }],
               breakBefore: pendingBreak,
             });
@@ -258,6 +263,8 @@ interface Ctx {
   scale: number;
   opts: LayoutOptions;
   spelling: Spelling;
+  /** Left indent of choruses, in points: see `chorusIndent`. */
+  chorusIndent: number;
 }
 
 function sz(ctx: Ctx, t: TextStyle) {
@@ -412,9 +419,25 @@ interface MeasuredBlock {
   wrapped: number;
 }
 
+/**
+ * The chorus indent, widened (up to twice the style's) so that short labels like "Rit."
+ * fit to the left of the first line in any font, the same for all the song's choruses.
+ */
+function chorusIndent(ctx: Omit<Ctx, 'chorusIndent'>, s: SongStructure): number {
+  const { fonts, style } = ctx;
+  const base = style.chorusIndent * ctx.scale;
+  let indent = base;
+  for (const b of s.blocks) {
+    if (b.kind !== 'chorus' || !b.label) continue;
+    const w = fonts.width(style.label.font, style.label.size * ctx.scale, b.label) + 3;
+    if (w <= 2 * base) indent = Math.max(indent, w);
+  }
+  return indent;
+}
+
 function measureBlock(ctx: Ctx, block: Block, colWidth: number): MeasuredBlock {
   const { style, fonts } = ctx;
-  const indent = block.kind === 'chorus' ? style.chorusIndent * ctx.scale : 0;
+  const indent = block.kind === 'chorus' ? ctx.chorusIndent : 0;
   const rows: Row[] = [];
   const wraps = { n: 0 };
   for (const r of block.rows) {
@@ -626,7 +649,8 @@ export function layoutSong(doc: SongDoc, fonts: FontRegistry, songStyle: SongSty
   };
   for (const scale of scales) {
     for (const columns of colChoices) {
-      const ctx: Ctx = { fonts, style, scale, opts, spelling };
+      const base = { fonts, style, scale, opts, spelling };
+      const ctx: Ctx = { ...base, chorusIndent: chorusIndent(base, s) };
       const r = flow(ctx, s, columns);
       const cand = { ...r, scale, columns };
       if (better(cand, best)) best = cand;
